@@ -6,6 +6,7 @@ namespace NodeGraphModLab.BuiltinNodes.Logic;
 /// 二つの数値を加算する。
 /// </summary>
 [NodeType("ngol.logic.add", "Logic/Math", "Add Numbers",
+    Version = "1.0.0",
     Description = "Add two numeric values and output the result.")]
 [NodePort("a", PortDirection.Input, "number", IsRequired = true, ShowInlineEditor = true, Description = "First operand")]
 [NodePort("b", PortDirection.Input, "number", IsRequired = true, ShowInlineEditor = true, Description = "Second operand")]
@@ -38,6 +39,7 @@ public sealed class AddNode : INode
 /// 値をログ出力するノード。
 /// </summary>
 [NodeType("ngol.logic.log", "Logic/Debug", "Log Value",
+    Version = "1.0.0",
     Description = "Log a value to the host console.")]
 [NodePort("value", PortDirection.Input, "any", Description = "Value to log")]
 [NodePort("label", PortDirection.Input, "string", ShowInlineEditor = true, Description = "Optional label prefix")]
@@ -55,6 +57,7 @@ public sealed class LogValueNode : INode
 /// 定数値を出力するノード。
 /// </summary>
 [NodeType("ngol.logic.const_number", "Logic/Values", "Constant Number",
+    Version = "1.0.0",
     Description = "Output a constant numeric value.")]
 [NodePort("value", PortDirection.Output, "number", ShowInlineEditor = true, Description = "The constant value")]
 public sealed class ConstantNumberNode : INode
@@ -70,6 +73,7 @@ public sealed class ConstantNumberNode : INode
 /// 定数文字列を出力するノード。
 /// </summary>
 [NodeType("ngol.logic.const_string", "Logic/Values", "Constant String",
+    Version = "1.0.0",
     Description = "Output a constant string value.")]
 [NodePort("value", PortDirection.Output, "string", ShowInlineEditor = true, Description = "The constant string")]
 public sealed class ConstantStringNode : INode

@@ -16,6 +16,7 @@ namespace NodeGraphModLab.BuiltinNodes.Fragment;
 // ============================================================
 
 [NodeType("ngol.snapshot.any", "Fragment/Snapshot", "Snapshot (Any)",
+    Version = "1.0.0",
     Description = "任意型の値をスナップショットとして保存する")]
 [NodePort("value", PortDirection.Input, "any")]
 [NodePort("value", PortDirection.Output, "any")]
@@ -31,6 +32,7 @@ public sealed class SnapshotAnyNode : INode
 }
 
 [NodeType("ngol.snapshot.number", "Fragment/Snapshot", "Snapshot (Number)",
+    Version = "1.0.0",
     Description = "数値型の値をスナップショットとして保存する")]
 [NodePort("number", PortDirection.Input, "number")]
 [NodePort("number", PortDirection.Output, "number")]
@@ -46,6 +48,7 @@ public sealed class SnapshotNumberNode : INode
 }
 
 [NodeType("ngol.snapshot.string", "Fragment/Snapshot", "Snapshot (String)",
+    Version = "1.0.0",
     Description = "文字列型の値をスナップショットとして保存する")]
 [NodePort("string", PortDirection.Input, "string")]
 [NodePort("string", PortDirection.Output, "string")]
@@ -61,6 +64,7 @@ public sealed class SnapshotStringNode : INode
 }
 
 [NodeType("ngol.snapshot.bool", "Fragment/Snapshot", "Snapshot (Bool)",
+    Version = "1.0.0",
     Description = "真偽値型の値をスナップショットとして保存する")]
 [NodePort("bool", PortDirection.Input, "bool")]
 [NodePort("bool", PortDirection.Output, "bool")]
@@ -76,6 +80,7 @@ public sealed class SnapshotBoolNode : INode
 }
 
 [NodeType("ngol.snapshot.gameobject", "Fragment/Snapshot", "Snapshot (GameObject)",
+    Version = "1.0.0",
     Description = "GameObject の参照をスナップショットとして保存する")]
 [NodePort("gameobject", PortDirection.Input, "gameobject")]
 [NodePort("gameobject", PortDirection.Output, "gameobject")]
@@ -91,6 +96,7 @@ public sealed class SnapshotGameObjectNode : INode
 }
 
 [NodeType("ngol.snapshot.material", "Fragment/Snapshot", "Snapshot (Material)",
+    Version = "1.0.0",
     Description = "Material の参照をスナップショットとして保存する")]
 [NodePort("material", PortDirection.Input, "material")]
 [NodePort("material", PortDirection.Output, "material")]
@@ -106,6 +112,7 @@ public sealed class SnapshotMaterialNode : INode
 }
 
 [NodeType("ngol.snapshot.transform", "Fragment/Snapshot", "Snapshot (Transform)",
+    Version = "1.0.0",
     Description = "Transform コンポーネントをスナップショットとして保存する")]
 [NodePort("transform", PortDirection.Input, "transform")]
 [NodePort("transform", PortDirection.Output, "transform")]
@@ -121,6 +128,7 @@ public sealed class SnapshotTransformNode : INode
 }
 
 [NodeType("ngol.snapshot.component", "Fragment/Snapshot", "Snapshot (Component)",
+    Version = "1.0.0",
     Description = "汎用 Component をスナップショットとして保存する (Rigidbody, Collider 等)")]
 [NodePort("component", PortDirection.Input, "component")]
 [NodePort("component", PortDirection.Output, "component")]
@@ -136,6 +144,7 @@ public sealed class SnapshotComponentNode : INode
 }
 
 [NodeType("ngol.snapshot.rigidbody", "Fragment/Snapshot", "Snapshot (Rigidbody)",
+    Version = "1.0.0",
     Description = "Rigidbody コンポーネントをスナップショットとして保存する")]
 [NodePort("rigidbody", PortDirection.Input, "rigidbody")]
 [NodePort("rigidbody", PortDirection.Output, "rigidbody")]
@@ -151,6 +160,7 @@ public sealed class SnapshotRigidbodyNode : INode
 }
 
 [NodeType("ngol.snapshot.collider", "Fragment/Snapshot", "Snapshot (Collider)",
+    Version = "1.0.0",
     Description = "Collider コンポーネントをスナップショットとして保存する")]
 [NodePort("collider", PortDirection.Input, "collider")]
 [NodePort("collider", PortDirection.Output, "collider")]
@@ -166,6 +176,7 @@ public sealed class SnapshotColliderNode : INode
 }
 
 [NodeType("ngol.snapshot.vector2", "Fragment/Snapshot", "Snapshot (Vector2)",
+    Version = "1.0.0",
     Description = "Vector2 をスナップショットとして保存する")]
 [NodePort("vector2", PortDirection.Input, "vector2")]
 [NodePort("vector2", PortDirection.Output, "vector2")]
@@ -181,6 +192,7 @@ public sealed class SnapshotVector2Node : INode
 }
 
 [NodeType("ngol.snapshot.vector3", "Fragment/Snapshot", "Snapshot (Vector3)",
+    Version = "1.0.0",
     Description = "Vector3 をスナップショットとして保存する")]
 [NodePort("vector3", PortDirection.Input, "vector3")]
 [NodePort("vector3", PortDirection.Output, "vector3")]
@@ -196,6 +208,7 @@ public sealed class SnapshotVector3Node : INode
 }
 
 [NodeType("ngol.snapshot.vector4", "Fragment/Snapshot", "Snapshot (Vector4)",
+    Version = "1.0.0",
     Description = "Vector4 をスナップショットとして保存する")]
 [NodePort("vector4", PortDirection.Input, "vector4")]
 [NodePort("vector4", PortDirection.Output, "vector4")]
@@ -211,6 +224,7 @@ public sealed class SnapshotVector4Node : INode
 }
 
 [NodeType("ngol.snapshot.color", "Fragment/Snapshot", "Snapshot (Color)",
+    Version = "1.0.0",
     Description = "Color をスナップショットとして保存する")]
 [NodePort("color", PortDirection.Input, "color")]
 [NodePort("color", PortDirection.Output, "color")]
@@ -226,6 +240,7 @@ public sealed class SnapshotColorNode : INode
 }
 
 [NodeType("ngol.snapshot.quaternion", "Fragment/Snapshot", "Snapshot (Quaternion)",
+    Version = "1.0.0",
     Description = "Quaternion をスナップショットとして保存する")]
 [NodePort("quaternion", PortDirection.Input, "quaternion")]
 [NodePort("quaternion", PortDirection.Output, "quaternion")]
@@ -241,6 +256,7 @@ public sealed class SnapshotQuaternionNode : INode
 }
 
 [NodeType("ngol.snapshot.rect", "Fragment/Snapshot", "Snapshot (Rect)",
+    Version = "1.0.0",
     Description = "Rect をスナップショットとして保存する")]
 [NodePort("rect", PortDirection.Input, "rect")]
 [NodePort("rect", PortDirection.Output, "rect")]
@@ -256,6 +272,7 @@ public sealed class SnapshotRectNode : INode
 }
 
 [NodeType("ngol.snapshot.bounds", "Fragment/Snapshot", "Snapshot (Bounds)",
+    Version = "1.0.0",
     Description = "Bounds をスナップショットとして保存する")]
 [NodePort("bounds", PortDirection.Input, "bounds")]
 [NodePort("bounds", PortDirection.Output, "bounds")]
@@ -271,6 +288,7 @@ public sealed class SnapshotBoundsNode : INode
 }
 
 [NodeType("ngol.snapshot.list", "Fragment/Snapshot", "Snapshot (List)",
+    Version = "1.0.0",
     Description = "IEnumerable をスナップショット保存時に List<object?> に materialize して固定する")]
 [NodePort("list", PortDirection.Input, "list")]
 [NodePort("list", PortDirection.Output, "list")]

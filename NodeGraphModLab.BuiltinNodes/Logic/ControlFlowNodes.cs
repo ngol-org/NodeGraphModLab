@@ -7,6 +7,7 @@ namespace NodeGraphModLab.BuiltinNodes.Logic;
 /// IForEachController を実装し、GraphExecutor がループ展開する。
 /// </summary>
 [NodeType("ngol.logic.foreach", "Logic/Control", "ForEach",
+    Version = "1.0.0",
     Description = "Iterate over a list. Downstream nodes run once per item.")]
 [NodePort("items",        PortDirection.Input,  "any[]",   IsRequired = true, Description = "List of items to iterate")]
 [NodePort("current_item", PortDirection.Output, "any",     Description = "Current item in the loop")]
@@ -45,6 +46,7 @@ public sealed class ForEachNode : INode, IForEachController
 /// 条件分岐ノード。condition が true なら then_value、false なら else_value を出力する。
 /// </summary>
 [NodeType("ngol.logic.if", "Logic/Control", "If",
+    Version = "1.0.0",
     Description = "Output then_value when condition is true, else_value otherwise.")]
 [NodePort("condition",  PortDirection.Input, "boolean", IsRequired = true, ShowInlineEditor = true, Description = "Branch condition")]
 [NodePort("then_value", PortDirection.Input, "any", Description = "Value when condition is true")]
@@ -76,6 +78,7 @@ public sealed class IfNode : INode
 /// 数値比較ノード。二つの数値を比較して bool を出力する。
 /// </summary>
 [NodeType("ngol.logic.compare", "Logic/Control", "Compare Numbers",
+    Version = "1.0.0",
     Description = "Compare two numeric values.")]
 [NodePort("a",        PortDirection.Input, "number", IsRequired = true, ShowInlineEditor = true, Description = "Left operand")]
 [NodePort("b",        PortDirection.Input, "number", IsRequired = true, ShowInlineEditor = true, Description = "Right operand")]
@@ -121,6 +124,7 @@ public sealed class CompareNode : INode
 /// 文字列操作ノード。Format / Concat / Contains を選択して実行する。
 /// </summary>
 [NodeType("ngol.logic.string_op", "Logic/String", "String Operation",
+    Version = "1.0.0",
     Description = "Perform a string operation (format / concat / contains).")]
 [NodePort("input",     PortDirection.Input, "string", IsRequired = true, Description = "Primary string")]
 [NodePort("secondary", PortDirection.Input, "string", Description = "Secondary string (concat/contains)")]
