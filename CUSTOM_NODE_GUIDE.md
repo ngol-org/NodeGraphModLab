@@ -54,6 +54,7 @@
 ## 2. 最小構成のノード
 
 ```csharp
+using System;
 using NodeGraphModLab.NodeAPI;
 
 [NodeType(
@@ -68,8 +69,8 @@ public sealed class MultiplyNode : INode
 {
     public void Execute(IExecutionContext ctx)
     {
-        var a = Convert.ToDouble(ctx.GetPortValue("a") ?? ctx.GetParam<double>("a") ?? 0.0);
-        var b = Convert.ToDouble(ctx.GetPortValue("b") ?? ctx.GetParam<double>("b") ?? 1.0);
+        var a = Convert.ToDouble(ctx.GetPortValue("a") ?? ctx.GetParam<double>("a"));
+        var b = Convert.ToDouble(ctx.GetPortValue("b") ?? ctx.GetParam<double>("b"));
         ctx.SetPortValue("result", a * b);
         ctx.Logger.LogInfo($"[Multiply] {a} × {b} = {a * b}");
     }
@@ -78,8 +79,10 @@ public sealed class MultiplyNode : INode
 
 **実行の流れ**:
 - `GetPortValue("a")` → 上流ノードから接続された値（接続なしは `null`）
-- `GetParam<double>("a")` → WebUI の Inspector で設定した固定値
+- `GetParam<double>("a")` → WebUI の Inspector で設定した固定値。未設定時は `double` の既定値 `0.0` を返す
 - `SetPortValue("result", value)` → 下流ノードへ値を渡す
+
+> **`double`/`float`/`int` 等の値型に対して `GetParam<T>(...) ?? リテラル` は書かない**: `GetParam<T>` は非制約ジェネリック `T?` で宣言されているため、`T` が非nullable値型の場合は `T?` が `Nullable<T>` ではなく素の `T` に解決され、`??` の左辺が非nullable値型になってコンパイルエラー（CS0019）になる。未設定時は元々 `default(T)` を返すため、フォールバック値が `default(T)`（`double`/`float`/`int` なら `0`）で十分な場合は `?? リテラル` 自体が不要。`string` 等の参照型では `T?` が正しく nullable になるため問題ない（例: `ctx.GetParam<string>("name") ?? "Cube"`）。
 
 ---
 
@@ -145,7 +148,7 @@ public void Execute(IExecutionContext ctx)
 
     // Inspector の固定値
     string? label = ctx.GetParam<string>("label");
-    double  speed  = ctx.GetParam<double>("speed") ?? 1.0;
+    double  speed  = ctx.GetParam<double>("speed"); // 未設定時は 0.0（値型は ?? リテラル を書かない）
 
     // ログ出力（ホストのログ + WebUI 両方に表示）
     ctx.Logger.LogInfo("[MyNode] 正常");

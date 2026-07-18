@@ -282,7 +282,9 @@ if (ctx.GetPortValue("gameObject") is { } obj)
 var items = ctx.GetParam<List<string>>("items");
 ```
 
-> **`ctx.GetParam<T>` が必要なケース**: 構造化型（`Color` / `Vector3` など）を paramValues から直接デシリアライズしたい場合のみ。プリミティブ型では `GetPortValue` だけで十分なので、`?? ctx.GetParam<T>(name)` を書く必要はない（書いても害はなく単なる冗長な二重チェックになるだけ）。
+> **`ctx.GetParam<T>` が必要なケース**: 構造化型（`Color` / `Vector3` など）を paramValues から直接デシリアライズしたい場合のみ。プリミティブ型では `GetPortValue` だけで十分なので、`?? ctx.GetParam<T>(name)` を書く必要はない。
+>
+> **`double`/`float`/`int` 等の非nullable値型では `GetParam<T>(...) ?? リテラル` は書かない**: `GetParam<T>` は `T? GetParam<T>(string)` という非制約ジェネリックで宣言されており、`T` が非nullable値型の場合 `T?` は `Nullable<T>` ではなく素の `T` に解決される。そのため `??` の左辺が非nullable値型になりコンパイルエラー（CS0019）になる。未設定時は元々 `default(T)` を返すため、`?? リテラル` 自体が不要（`string` 等の参照型では `T?` が正しく nullable になるため問題ない）。
 
 ### ログ出力
 
@@ -363,7 +365,7 @@ public sealed class SetScaleNode : INode
     public void Execute(IExecutionContext ctx)
     {
         var go = ctx.GetPortValue("gameObject");
-        var scale = Convert.ToSingle(ctx.GetPortValue("scale") ?? ctx.GetParam<float>("scale") ?? 1f);
+        var scale = Convert.ToSingle(ctx.GetPortValue("scale") ?? ctx.GetParam<float>("scale"));
 
         if (go == null) { ctx.Logger.LogWarning("[SetScale] gameObject が null"); return; }
 

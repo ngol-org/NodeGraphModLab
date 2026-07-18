@@ -151,11 +151,11 @@ if (Test-Path $webUiDist) {
     Write-Host "    Copied: WebUI/" -ForegroundColor DarkCyan
 } else { Write-Warning "WebUI dist not found: $webUiDist" }
 
-# mcp（public 版: bundle.js -> dist/index.js、docs/・MCP_GUIDE.md・mcp.json.example は
+# mcp（public 版: bundle.js -> dist/index.js、docs/・README.md・mcp.json.example は
 # public repo 側で既に .public サフィックスがリネームされている前提 — 設計 §4.1.3）
 $mcpBundleSrc = Join-Path $Source "mcp\dist\bundle.js"
 $mcpDocsSrc   = Join-Path $Source "mcp\docs"
-$mcpGuideSrc  = Join-Path $Source "mcp\MCP_GUIDE.md"
+$mcpGuideSrc  = Join-Path $Source "mcp\README.md"
 $mcpJsonExSrc = Join-Path $Source "mcp\mcp.json.example"
 $mcpRootDest  = Join-Path $ngolStaging "mcp"
 $mcpDistDest  = Join-Path $ngolStaging "mcp\dist"
