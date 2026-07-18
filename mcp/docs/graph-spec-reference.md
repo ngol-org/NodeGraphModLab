@@ -44,6 +44,8 @@
 
 `position` は必ず設定すること（省略すると全ノードが座標 0 で重なる）。ノード間は 250〜300px 離すこと。
 
+⚠️ **実際の描画幅は不明（`size` 省略時は内容に応じた自動サイズ）だからといって、300px より広く間隔を空けないこと。** 250〜300px は「重ならない」ためではなく「見やすい」ための目安であり、既にノード本体の想定幅を含んだ値。不安だからと400px以上空けると、大半のノード（幅200px前後）ではエッジだけが間延びした見づらいグラフになる。コード表示パネルのように内容量で幅が伸びるノードが混ざる場合のみ、上限寄り（300px）を使う。
+
 ## NodeConnection
 
 同一断片内のポート接続。
@@ -64,6 +66,8 @@
 
 ポート名の実在性はエンジン側で検証されないため、通常のポート名と同様に接続に使える。
 
+⚠️ **Snapshot ノード（`ngol.snapshot.*` および `ctx.SnapshotStore?.SetSnapshot(...)` を呼ぶカスタムノード。List Item Selector 等の WebUI 対話選択ノードを含む）の出力を下流ノードへ渡す場合は、`connections` ではなく次項の `FragmentLink` を使うこと。** `connections` で繋ぐと下流ノードが同一断片（連結成分）に取り込まれ、Snapshot ノードを含む上流全体が毎回まとめて再実行されてしまう。特に WebUI のドロップダウン等で選択値を都度変える対話的ノード（`setSnapshotValue` で SnapshotStore を直接更新するパターン）では、下流を独立した断片にして `execute_fragment` で下流だけ再実行できるようにするのが正しい設計。
+
 ## FragmentLink
 
 断片間の Snapshot 経由接続。`sourceSnapshotNodeInstanceId` は必ず Snapshot ノード。
@@ -73,7 +77,7 @@
   "toNodeInstanceId": "uuid-target", "toPortName": "gameobject" }
 ```
 
-通常の `connections` には含まれず、断片の連結成分計算からも除外される。
+通常の `connections` には含まれず、断片の連結成分計算からも除外される。Snapshot ノードの出力を下流に渡す接続は原則こちらを使う（上記 NodeConnection 項参照）。
 
 ## データ型一覧（`dataType` 文字列）
 

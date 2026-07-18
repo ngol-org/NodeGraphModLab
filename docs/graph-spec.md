@@ -103,6 +103,10 @@ flowchart LR
 | `paramValues`| `Record<string, JsonElement>` | ポート名 → 固定値 |
 | `size`       | `{width: float, height: float}` （省略可） | ユーザーが角ドラッグで手動リサイズしたサイズ。省略時は内容に応じた自動サイズ |
 
+`position` は必ず設定すること（省略すると全ノードが座標 0 で重なる）。ノード間は 250〜300px 離すこと。
+
+⚠️ 実際の描画幅は不明（`size` 省略時は内容に応じた自動サイズ）だからといって、300px より広く間隔を空けないこと。250〜300px は「重ならない」ためではなく「見やすい」ための目安であり、既にノード本体の想定幅を含んだ値。不安だからと400px以上空けると、大半のノード（幅200px前後）ではエッジだけが間延びした見づらいグラフになる。コード表示パネルのように内容量で幅が伸びるノードが混ざる場合のみ、上限寄り（300px）を使う。
+
 ### 2.3 NodeConnection
 
 同一断片内のポート接続を表します。
@@ -134,6 +138,10 @@ flowchart LR
 
 エンジン（`GraphExecutor` / `GraphTopologyHelper`）はポート名の実在性を検証せず、接続を文字列としてそのまま扱うため、ノード実装側でこれらの名前を実ポートとして宣言しない限り追加対応は不要です。
 
+#### Snapshot ノードの下流接続には NodeConnection を使わない
+
+Snapshot ノード（`ngol.snapshot.*` および `ctx.SnapshotStore?.SetSnapshot(...)` を呼ぶカスタムノード。List Item Selector 等の WebUI 対話選択ノードを含む）の出力を下流ノードへ渡す場合は、`connections`（NodeConnection）ではなく次項の `FragmentLink` を使うこと。`connections` で繋ぐと下流ノードが Snapshot ノードと同一断片（連結成分）に取り込まれ、下流だけを再実行したくても上流の Snapshot ノードごと毎回まとめて再実行されてしまう。特に WebUI のドロップダウン等で選択値を都度変える対話的ノード（`setSnapshotValue` で SnapshotStore を直接更新するパターン、§後述の対話パターン参照）では、下流を独立した断片にして `execute_fragment` で下流だけ再実行できるようにするのが正しい設計。
+
 ### 2.4 FragmentLink
 
 断片間の Snapshot 経由接続を表します。`sourceSnapshotNodeInstanceId` は必ず Snapshot ノードです。
@@ -154,7 +162,7 @@ flowchart LR
 | `toNodeInstanceId`               | string | 下流断片の入力先ノードのインスタンスID |
 | `toPortName`                     | string | 入力ポート名 |
 
-WebUI では橙色破線の `FRAGMENT LINK` エッジとして表示されます。通常の `connections` には含まれず、断片の連結成分計算からも除外されます。
+WebUI では橙色破線の `FRAGMENT LINK` エッジとして表示されます。通常の `connections` には含まれず、断片の連結成分計算からも除外されます。Snapshot ノードの出力を下流に渡す接続は原則こちらを使う（前項 2.3 参照）。
 
 ### 2.5 NodeGroup
 
