@@ -136,7 +136,15 @@ MCP サーバー（`mcp/`）を AI エージェントに接続する場合は、
 
 ノードの実装方法・API リファレンスは [CUSTOM_NODE_GUIDE.md](CUSTOM_NODE_GUIDE.md) を参照してください。
 
-### 5.（応用）対象アプリを無改造のまま注入する — `DOTNET_STARTUP_HOOKS`
+### 5. テストの実行
+
+Core のロジックは NUnit による単体テストで検証されています（`NodeGraphModLab.Tests/`）。
+
+```powershell
+.\scripts\run-core-tests.ps1
+```
+
+### 6.（応用）対象アプリを無改造のまま注入する — `DOTNET_STARTUP_HOOKS`
 
 .NET 公式機能の `DOTNET_STARTUP_HOOKS` を使うと、対象アプリの**ソースコード・ビルド設定を一切変更せずに**、実行ファイルの起動時に NGOL を注入できます。上記2の「数行の初期化コードを追加する」ことすら不要になる方式です。対象は自作アプリに限らず、PowerShell 7+（`pwsh.exe`）のような既存の .NET アプリにもそのまま注入できます。
 
