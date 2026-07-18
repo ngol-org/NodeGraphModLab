@@ -83,7 +83,7 @@ const {
 |---|---|---|
 | ストア | SnapshotStore（ポート名） | LiveParamStore（任意キー） |
 | 下流への伝播 | 断片リンク経由 | なし（当該永続ノードのみ） |
-| ノード側 | `SetSnapshot` / 下流 `GetSnapshot` | `ctx.GetLiveParam<T>(key, default)` in `onUpdate` |
+| ノード側 | `SetSnapshot` / 下流 `GetSnapshot` | `ctx.GetLiveParam<T>(key, default)` in `OnUpdate` |
 | PIN ガード | あり | なし |
 | 逆方向（ノード→WebUI） | `PushLiveValue`（別チャンネル） | 未実装（将来予定） |
 

@@ -11,7 +11,7 @@
 | **1. LogOutput-JSON** | 小〜中規模（オブジェクト数 < 50） | まずこれを試す |
 | **2. ファイル出力** | 大量データ（> 50 件・複雑なフィルタ） | Pattern 1 で JSON が巨大になる／タイムアウトする場合 |
 | **3. Snapshot 収集** | 単一〜少数の値 | ノードコーディング不要、グラフだけで完結 |
-| **4. RegisterPersistent(onUpdate)** | `MainThreadDispatch` がタイムアウトする環境 | ホスト側の何らかの理由でメインスレッド処理が停止/低頻度になっている場合（例: Unity ゲームエンジンをホストにした際の `Time.timeScale = 0`） |
+| **4. RegisterPersistent(OnUpdate)** | `MainThreadDispatch` がタイムアウトする環境 | ホスト側の何らかの理由でメインスレッド処理が停止/低頻度になっている場合（例: Unity ゲームエンジンをホストにした際の `Time.timeScale = 0`） |
 
 ---
 
@@ -81,9 +81,9 @@ public class FileListOutputNode : INode
 
 ---
 
-## Pattern 4: RegisterPersistent(onUpdate) 経由（メインスレッドが低頻度/停止気味の環境向け）
+## Pattern 4: RegisterPersistent(OnUpdate) 経由（メインスレッドが低頻度/停止気味の環境向け）
 
-`MainThreadDispatch` は、ホストのメインスレッドが何らかの理由で長時間ブロックまたは低頻度にしか回っていない環境ではタイムアウトすることがある（例: Unity ゲームエンジンをホストにした際の `Time.timeScale = 0`）。`onUpdate` はメインスレッドで周期的に呼ばれるコールバックのため、そのような環境でも動作しやすい。
+`MainThreadDispatch` は、ホストのメインスレッドが何らかの理由で長時間ブロックまたは低頻度にしか回っていない環境ではタイムアウトすることがある（例: Unity ゲームエンジンをホストにした際の `Time.timeScale = 0`）。`OnUpdate` はメインスレッドで周期的に呼ばれるコールバックのため、そのような環境でも動作しやすい。
 
 - **判断方法**: まず Ping ノード（MainThreadDispatch なし）で接続確認 → 成功するが解析ノードだけ
   タイムアウトするなら Pattern 4 を使う
@@ -111,7 +111,7 @@ public class PersistentSafeScannerNode : INode
 }
 ```
 
-> `onUpdate` は永続ノードとして登録されるため、Execute 終了後も実行が続く。1 回だけ取得すれば
+> `OnUpdate` は永続ノードとして登録されるため、Execute 終了後も実行が続く。1 回だけ取得すれば
 > 十分な場合はそのままで問題ない（WebUI または `stop_persistent_node` で停止可能）。
 
 ---

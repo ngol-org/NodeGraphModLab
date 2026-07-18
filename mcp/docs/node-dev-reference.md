@@ -5,6 +5,7 @@
 ## 最小テンプレート（コピペ可能）
 
 ```csharp
+using System;
 using NodeGraphModLab.NodeAPI;
 
 [NodeType(
@@ -62,7 +63,7 @@ public sealed class MultiplyNode : INode
 | `SnapshotStore` | 断片間の値受け渡し（`SetSnapshot`/`GetSnapshot`） |
 | `GetDownstreamConnections(string)` | 出力ポートの下流接続一覧 |
 | `PushLiveValue(string, object?)` | Snapshot をリアルタイム更新（`SetPortValue` と違い断片実行を待たず即時反映） |
-| `GetLiveParam<T>(string key, T defaultValue = default)` | WebUI の `pushLiveParams` が書き込んだライブパラメータを読む（永続ノードの `onUpdate` で毎フレーム呼ぶ。opt-in） |
+| `GetLiveParam<T>(string key, T defaultValue = default)` | WebUI の `pushLiveParams` が書き込んだライブパラメータを読む（永続ノードの `OnUpdate` で毎フレーム呼ぶ。opt-in） |
 | `Store` | ノード間・ホストプロセス再起動をまたぐ KV Store |
 
 ## メインスレッド制約ルール（必読・ホストによっては違反するとクラッシュする）
@@ -88,17 +89,20 @@ done.Wait(System.TimeSpan.FromSeconds(5));
 
 `Execute()` 内で登録すると、実行後もコールバックが継続する。WebUI に **PERSISTENT** バッジが表示される。
 
-| コールバック | 発火タイミング | 用途 |
+| コールバック（`PersistentCallbacks` のプロパティ） | 発火タイミング | 用途 |
 |---|---|---|
-| `onStart` | 登録直後に 1 回 | 初期化 |
-| `onUpdate` | 毎フレーム/毎tick（メインスレッド） | メインスレッド専用 API を直接呼べる。`MainThreadDispatch` 不要 |
-| `onStop` | 停止時（`IsActive=false` になった時。Cancel 経路でも発火） | クリーンアップ |
+| `OnStart` | 登録直後に 1 回 | 初期化 |
+| `OnUpdate` | 毎フレーム/毎tick（メインスレッド） | メインスレッド専用 API を直接呼べる。`MainThreadDispatch` 不要 |
+| `OnStop` | 停止時（`IsActive=false` になった時。Cancel 経路でも発火） | クリーンアップ |
 
-基本の `PersistentCallbacks` が持つのはこの3つ（`onUpdate`/`onStart`/`onStop`）のみ。
-`onGui` のようなホスト固有の追加フェーズ（Unityなら OnGUI/FixedUpdate/LateUpdate 等）は、
-ホストブリッジ側が `PersistentCallbacks` を継承して提供するサブクラス経由でのみ使える。
+基本の `PersistentCallbacks` が持つのはこの3つ（`OnUpdate`/`OnStart`/`OnStop`、いずれも PascalCase の C# プロパティ）のみ。
+ホスト固有の追加フェーズ（例えば Unity ホストなら `OnGUI`/`FixedUpdate`/`LateUpdate` 相当のもの）は、
+`PersistentCallbacks` 自体には存在せず、ホストブリッジ側がこれを継承して独自プロパティを追加した
+サブクラス経由でのみ使える（`GetPhase(string)` をオーバーライドしてフェーズ名を解決する仕組み）。
+基本 3 つのプロパティ以外が必要な場合は、そのホストが提供するサブクラスの型名・プロパティ名を
+`get_available_nodes` 等で確認すること。
 
-- `onUpdate`（またはホスト拡張コールバック）内も、ホストによっては `try-catch` が機能しない場合がある。null チェックで防御する
+- `OnUpdate`（またはホスト拡張コールバック）内も、ホストによっては `try-catch` が機能しない場合がある。null チェックで防御する
 - `Thread.Sleep` / `Task.Run` は呼ばない（メインスレッドがフリーズする）
 - 停止: WebUI 右クリック → Stop Persistent、または MCP `stop_persistent_node`
 
@@ -155,7 +159,7 @@ WebUI プラグインが `NGOL.pushLiveParams(nodeInstanceId, params)` を送る
 ```csharp
 ctx.RegisterPersistent(new PersistentCallbacks
 {
-    onUpdate = () =>
+    OnUpdate = () =>
     {
         var scale = ctx.GetLiveParam("scale", 1.0);
         // scale を毎フレーム適用…
@@ -171,7 +175,7 @@ ctx.RegisterPersistent(new PersistentCallbacks
 
 - `params` / 読み取り値は **string / number / boolean / null** のみ
 - 履歴なし（最新値のみ）。停止時に `ClearNode`
-- `set_snapshot_value` では永続ノードの `onUpdate` 中の値は更新されない（Snapshot は Execute 時にキャプチャされるため）
+- `set_snapshot_value` では永続ノードの `OnUpdate` 中の値は更新されない（Snapshot は Execute 時にキャプチャされるため）
 
 ## バージョン互換性
 

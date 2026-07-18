@@ -242,7 +242,7 @@ public sealed class FpsCounterNode : INode
 }
 ```
 
-**`onUpdate` のルール**:
+**`OnUpdate` のルール**:
 - ホストのメインスレッドで実行されるため、ホスト固有 API を直接呼べる
 - `MainThreadDispatch` は不要（すでにメインスレッド）
 - `try-catch` は書いても機能しないことがある（一部の実行環境の制約）。クラッシュを避けるため null チェックを徹底する
@@ -334,4 +334,4 @@ ngolRoot/Nodes/CustomNodes/dll/MyCustomNodes.dll
 
 ### ホスト固有 API を `Execute()` で直接呼んでクラッシュする
 
-`Execute()` はバックグラウンドスレッドで実行されます。ホスト固有 API は `MainThreadDispatch` でラップするか、`RegisterPersistent` の `onUpdate` コールバック内で呼んでください。
+`Execute()` はバックグラウンドスレッドで実行されます。ホスト固有 API は `MainThreadDispatch` でラップするか、`RegisterPersistent` の `OnUpdate` コールバック内で呼んでください。
