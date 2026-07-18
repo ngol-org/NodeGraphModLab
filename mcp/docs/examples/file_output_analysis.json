@@ -1,0 +1,20 @@
+{
+  "schemaVersion": "0.2.0",
+  "id": "example-file-output-analysis",
+  "name": "Example: File Output Analysis",
+  "description": "Pattern 2 example",
+  "version": 1,
+  "nodes": [
+    {
+      "instanceId": "node-writer",
+      "nodeTypeId": "custom.file_list_output",
+      "position": { "x": 100, "y": 100 },
+      "paramValues": { "targetDir": "." }
+    }
+  ],
+  "connections": [],
+  "fragments": [],
+  "fragmentLinks": [],
+  "groups": [],
+  "annotations": []
+}

@@ -1,0 +1,222 @@
+/* ============================================================
+   グループノードスタイル
+   ============================================================ */
+
+.group-node {
+  border: 2px dashed #4a9eff;
+  border-radius: 8px;
+  background: rgba(74, 158, 255, 0.06);
+  box-sizing: border-box;
+  font-size: 12px;
+  color: var(--text-primary, #e0e0e0);
+}
+
+.group-node-collapsed {
+  width: 200px;
+  height: 40px;
+  display: flex;
+  align-items: stretch;
+  background: rgba(30, 40, 60, 0.92);
+  border-style: solid;
+}
+
+.group-node-collapsed-content {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 0 8px;
+  flex: 1;
+  position: relative;
+  overflow: hidden;
+}
+
+/* エッジルーティング用の非表示Handle（group-in/group-out）:
+   xyflowの既定配置(left:0/right:0 + translate(-50%))だとHandle中心がノード境界線上に来て
+   約3pxがノード矩形の外側にはみ出す。pointer-events:noneのためその帯でのクリックが
+   キャンバス背景に素通りしてしまう（右クリックメニュー誤表示・ドラッグ不発の原因）。
+   ノード矩形の内側に収めることでこのデッドゾーンを無くす。 */
+.group-collapsed-handle.react-flow__handle-left {
+  left: 4px;
+  transform: translate(0, -50%);
+}
+.group-collapsed-handle.react-flow__handle-right {
+  right: 4px;
+  transform: translate(0, -50%);
+}
+
+/* pointer-events はデフォルト(auto)のまま: none にするとイベントがキャンバスパネルに
+   素通りし、空エリアでの範囲選択ドラッグが誤発生するため */
+.group-node-expanded {
+  display: flex;
+  flex-direction: column;
+  border-style: dashed;
+}
+
+.group-node-header {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 8px;
+  background: rgba(30, 40, 60, 0.88);
+  position: relative;
+  border-radius: 6px 6px 0 0;
+  cursor: grab;
+  user-select: none;
+  height: 30px;
+  min-height: 30px;
+}
+
+.group-node-header:active {
+  cursor: grabbing;
+}
+
+/* pointer-events は auto: onMouseDown で stopPropagation してキャンバス選択を防止 */
+.group-node-body {
+  flex: 1;
+}
+
+.group-node-toggle {
+  background: none;
+  border: none;
+  color: var(--text-primary, #e0e0e0);
+  cursor: pointer;
+  font-size: 10px;
+  padding: 2px 4px;
+  border-radius: 3px;
+  pointer-events: all;
+  flex-shrink: 0;
+}
+
+.group-node-toggle:hover {
+  background: rgba(74, 158, 255, 0.2);
+}
+
+.group-node-name {
+  font-weight: 600;
+  font-size: 12px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  flex: 1;
+  color: #b0c8ff;
+}
+
+.group-node-badge {
+  font-size: 10px;
+  color: #888;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+/* description 設定済みインジケーター */
+.group-node-desc-indicator {
+  font-size: 10px;
+  opacity: 0.6;
+  flex-shrink: 0;
+  cursor: default;
+  margin-left: 2px;
+}
+
+/* description ホバーツールチップ（position: fixed は JS 側で付与、portal でレンダリング） */
+.group-node-tooltip {
+  z-index: 9999;
+  background: #1e1e2e;
+  border: 1px solid #4a9eff66;
+  border-radius: 4px;
+  padding: 6px 8px;
+  font-size: 11px;
+  color: #ccc;
+  white-space: pre-wrap;
+  max-width: 280px;
+  word-break: break-word;
+  pointer-events: none;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.5);
+  line-height: 1.4;
+}
+
+.group-node-header-actions {
+  display: flex;
+  gap: 2px;
+  margin-left: auto;
+  flex-shrink: 0;
+  pointer-events: all;
+}
+
+.group-node-action-btn {
+  background: none;
+  border: none;
+  color: #999;
+  cursor: pointer;
+  font-size: 11px;
+  padding: 2px 5px;
+  border-radius: 3px;
+  line-height: 1;
+}
+
+.group-node-action-btn:hover {
+  background: rgba(255, 255, 255, 0.1);
+  color: #ccc;
+}
+
+.group-node-action-danger:hover {
+  background: rgba(220, 50, 50, 0.2);
+  color: #ff7070;
+}
+
+.group-node-rename-input {
+  background: rgba(20, 30, 50, 0.95);
+  border: 1px solid #4a9eff;
+  border-radius: 3px;
+  color: #b0c8ff;
+  font-size: 12px;
+  font-weight: 600;
+  padding: 1px 4px;
+  width: 100%;
+  min-width: 80px;
+  outline: none;
+  flex: 1;
+}
+
+.group-node-confirm {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  background: rgba(30, 20, 20, 0.96);
+  border: 1px solid #cc4444;
+  border-radius: 4px;
+  padding: 2px 6px;
+  white-space: nowrap;
+}
+.group-node-confirm-text {
+  font-size: 11px;
+  color: #ffaaaa;
+}
+.group-node-confirm-yes {
+  background: rgba(200, 40, 40, 0.8);
+  border: none;
+  border-radius: 3px;
+  color: #fff;
+  font-size: 10px;
+  padding: 1px 6px;
+  cursor: pointer;
+}
+.group-node-confirm-yes:hover { background: rgba(220, 60, 60, 0.95); }
+.group-node-confirm-no {
+  background: rgba(60, 60, 80, 0.8);
+  border: none;
+  border-radius: 3px;
+  color: #ccc;
+  font-size: 10px;
+  padding: 1px 6px;
+  cursor: pointer;
+}
+.group-node-confirm-no:hover { background: rgba(80, 80, 100, 0.95); }
+
+/* ReactFlow ノードラッパーからデフォルト選択枠を除去 */
+.react-flow__node.nopan.group-node-expanded-wrapper .react-flow__node-default,
+.react-flow__node.group-node-expanded-wrapper {
+  background: transparent !important;
+  border: none !important;
+  box-shadow: none !important;
+  padding: 0 !important;
+}

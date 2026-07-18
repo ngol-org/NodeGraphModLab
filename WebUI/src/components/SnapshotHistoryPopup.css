@@ -1,0 +1,159 @@
+/* ── Snapshot History Popup ── */
+.snapshot-history-popup {
+  position: fixed;
+  z-index: 1100;
+  background: #1e1e2e;
+  border: 1px solid #444;
+  border-radius: 8px;
+  width: 340px;
+  box-shadow: 0 8px 32px rgba(0,0,0,0.6);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+}
+
+.snapshot-history-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 14px;
+  background: #2a2a3e;
+  border-bottom: 1px solid #333;
+  cursor: move;
+  user-select: none;
+}
+
+.snapshot-history-title {
+  font-size: 13px;
+  font-weight: 600;
+  color: #e0e0e0;
+}
+
+.snapshot-history-port {
+  font-size: 11px;
+  color: #888;
+  font-family: monospace;
+}
+
+.snapshot-history-list {
+  max-height: 220px;
+  overflow-y: auto;
+  padding: 4px 0;
+}
+
+.snapshot-history-empty {
+  padding: 16px;
+  text-align: center;
+  color: #666;
+  font-size: 12px;
+}
+
+.snapshot-history-entry {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  width: 100%;
+  padding: 7px 14px;
+  background: transparent;
+  border: none;
+  color: #ccc;
+  font-size: 12px;
+  text-align: left;
+  cursor: pointer;
+  transition: background 0.1s;
+}
+
+.snapshot-history-entry:hover {
+  background: rgba(255,255,255,0.06);
+}
+
+.snapshot-history-entry.selected {
+  background: rgba(76, 175, 80, 0.18);
+  color: #a5d6a7;
+}
+
+.snapshot-history-index {
+  color: #666;
+  font-family: monospace;
+  min-width: 30px;
+}
+
+.snapshot-history-value {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-family: monospace;
+}
+
+.snapshot-history-type {
+  color: #888;
+  font-size: 10px;
+  min-width: 52px;
+  text-align: right;
+}
+
+.snapshot-history-time {
+  color: #666;
+  font-size: 10px;
+  font-family: monospace;
+  min-width: 56px;
+  text-align: right;
+}
+
+.snapshot-history-footer {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 10px 14px;
+  background: #2a2a3e;
+  border-top: 1px solid #333;
+}
+
+.snapshot-history-pin-notice {
+  font-size: 11px;
+  color: #f5a623;
+  text-align: center;
+  padding: 2px 0;
+}
+
+.snapshot-history-btn-row {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.snapshot-history-btn {
+  padding: 5px 14px;
+  border-radius: 5px;
+  border: none;
+  font-size: 12px;
+  cursor: pointer;
+  transition: background 0.15s, opacity 0.15s;
+}
+
+.snapshot-history-btn-restore {
+  background: #4caf50;
+  color: #fff;
+}
+
+.snapshot-history-btn-restore:hover:not(:disabled) {
+  background: #66bb6a;
+}
+
+.snapshot-history-btn-restore:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.snapshot-history-btn-close {
+  background: #444;
+  color: #ccc;
+}
+
+.snapshot-history-btn-close:hover {
+  background: #555;
+}

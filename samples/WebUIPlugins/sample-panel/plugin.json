@@ -1,0 +1,7 @@
+{
+  "id": "sample.webui.snapshot-watch",
+  "version": "1.0.0",
+  "displayName": "Snapshot Watch",
+  "scriptFile": "index.js",
+  "apiVersion": 1
+}

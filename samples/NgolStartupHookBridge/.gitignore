@@ -1,0 +1,12 @@
+# ビルド成果物
+bin/
+obj/
+TestTargetApp/bin/
+TestTargetApp/obj/
+
+# prepare-ngol-plugin-dir.ps1 が組み立てる実行時フォルダ（DLL・WebUI等）。
+# ngol-plugin-* は注入先アプリごとに組み立てた派生フォルダも含めて無視する。
+ngol-plugin/
+ngol-plugin-*/
+host.log
+startup-hook-bridge.log

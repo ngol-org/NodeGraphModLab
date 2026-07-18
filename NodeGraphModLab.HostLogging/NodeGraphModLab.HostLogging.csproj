@@ -1,0 +1,30 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    標準的なホスト（NgolCoreHostWin 等）向けの INgolLogger 実装（コンソール＋ファイル出力）。
+    Core とは独立した再利用可能なプロジェクトとして提供する。
+    NodeGraphModLab.Core は本プロジェクトを参照しない（一方向の依存）。
+  -->
+
+  <PropertyGroup>
+    <AssemblyName>NodeGraphModLab.HostLogging</AssemblyName>
+    <RootNamespace>NodeGraphModLab.HostLogging</RootNamespace>
+    <TargetFramework>net6.0</TargetFramework>
+    <LangVersion>latest</LangVersion>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <!--
+      NodeGraphModLab.Core.dll は INgolLogger インターフェース実装のためのコンパイル時参照のみ。
+      Private=false により自身の出力フォルダへはコピーしない（ホスト側が plugin-dist から
+      Assembly.LoadFrom で実体をロードする、Core/NodeAPI と同じ動的ロード方式）。
+      ProjectReference にすることで MSBuild がビルド順序（Core が先）を保証する。
+    -->
+    <ProjectReference Include="..\NodeGraphModLab.Core\NodeGraphModLab.Core.csproj">
+      <Private>false</Private>
+    </ProjectReference>
+  </ItemGroup>
+
+</Project>

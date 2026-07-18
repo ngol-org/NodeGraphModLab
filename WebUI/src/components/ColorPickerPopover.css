@@ -1,0 +1,84 @@
+/* ── Color Picker Popover (react-colorful) ── */
+.color-picker-popover {
+  background: var(--bg-panel);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 10px;
+  box-shadow: 0 6px 24px rgba(0,0,0,0.5);
+  min-width: 220px;
+}
+.color-picker-popover .react-colorful {
+  width: 200px !important;
+  height: 140px !important;
+}
+.color-picker-popover .react-colorful__saturation {
+  border-radius: 4px 4px 0 0 !important;
+}
+.color-picker-popover .react-colorful__alpha,
+.color-picker-popover .react-colorful__hue {
+  height: 14px !important;
+  border-radius: 4px !important;
+  margin-top: 6px !important;
+}
+.color-picker-fields {
+  display: flex;
+  gap: 4px;
+  margin-top: 8px;
+}
+.color-picker-field {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  font-size: 10px;
+  color: var(--text-dim);
+}
+.color-picker-field span {
+  font-size: 9px;
+  color: var(--text-dim);
+}
+.color-picker-field input {
+  width: 44px !important;
+  height: 20px !important;
+  font-size: 10px !important;
+  text-align: center;
+  padding: 0 2px !important;
+}
+
+/* Inspector カラースウォッチ */
+.inspector-color-swatch {
+  width: 100%;
+  height: 28px;
+  border-radius: 4px;
+  border: 1px solid var(--border);
+  cursor: pointer;
+  transition: border-color 0.15s;
+}
+.inspector-color-swatch:hover {
+  border-color: var(--text-secondary);
+}
+.inspector-picker-anchor {
+  position: absolute;
+  left: 0;
+  top: 32px;
+  z-index: 9999;
+}
+
+/* CustomNode: Color 入力ポートのスウォッチ */
+.port-color-swatch {
+  display: inline-block;
+  width: 12px;
+  height: 12px;
+  border-radius: 2px;
+  border: 1px solid rgba(255,255,255,0.3);
+  margin-left: 4px;
+  flex-shrink: 0;
+  vertical-align: middle;
+  position: relative;
+  top: -1px;
+}
+.port-color-swatch-unset {
+  background: linear-gradient(135deg, #555 25%, #333 25%, #333 50%, #555 50%, #555 75%, #333 75%) !important;
+  background-size: 6px 6px !important;
+  opacity: 0.7;
+}

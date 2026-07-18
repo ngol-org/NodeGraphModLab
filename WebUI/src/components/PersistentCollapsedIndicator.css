@@ -1,0 +1,107 @@
+.persistent-collapsed-indicator {
+  position: relative;
+  flex-shrink: 0;
+  margin-top: auto;
+  margin-bottom: 8px;
+  padding: 0 2px;
+  overflow: visible;
+}
+
+.persistent-collapsed-indicator-btn {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  padding: 0;
+  border: none;
+  border-radius: 4px;
+  background: transparent;
+  color: #7c3aed;
+  cursor: pointer;
+  overflow: visible;
+}
+
+.persistent-collapsed-indicator-btn:hover {
+  background: rgba(124, 58, 237, 0.15);
+}
+
+.persistent-collapsed-indicator-btn.persistent-collapsed-indicator-active {
+  background: rgba(124, 58, 237, 0.25);
+}
+
+.persistent-collapsed-indicator-pulse {
+  animation: persistent-collapsed-pulse 2s ease-in-out infinite;
+}
+
+@keyframes persistent-collapsed-pulse {
+  0%, 100% { box-shadow: 0 0 0 1px rgba(124, 58, 237, 0.4); }
+  50%       { box-shadow: 0 0 0 2px rgba(124, 58, 237, 0.7); }
+}
+
+.persistent-running-icon-arc {
+  transform-origin: 12px 12px;
+  animation: persistent-icon-arc-spin 2.5s linear infinite;
+}
+
+.persistent-running-icon-play {
+  transform-origin: 12px 12px;
+  animation: persistent-icon-play-pulse 1.5s ease-in-out infinite;
+}
+
+@keyframes persistent-icon-arc-spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+@keyframes persistent-icon-play-pulse {
+  0%, 100% { opacity: 1; }
+  50%       { opacity: 0.55; }
+}
+
+/* Badge on top-left so it extends into canvas, not off the screen edge */
+.persistent-collapsed-indicator-badge {
+  position: absolute;
+  top: -5px;
+  left: -4px;
+  min-width: 15px;
+  height: 15px;
+  padding: 0 4px;
+  border-radius: 8px;
+  background: #7c3aed;
+  color: #fff;
+  font-size: 10px;
+  font-weight: 700;
+  line-height: 15px;
+  text-align: center;
+  pointer-events: none;
+  box-shadow: 0 0 0 1px var(--bg-panel, #1a1a2e);
+  z-index: 1;
+}
+
+.persistent-collapsed-indicator-popover {
+  position: absolute;
+  right: calc(100% + 6px);
+  bottom: 0;
+  z-index: 200;
+  width: 240px;
+  max-height: min(320px, 50vh);
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  background: var(--bg-panel);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.35);
+}
+
+.persistent-collapsed-indicator-popover .persistent-nodes-section {
+  border-top: none;
+  max-height: min(320px, 50vh);
+}
+
+.persistent-collapsed-indicator-popover .fragment-list {
+  max-height: min(260px, calc(50vh - 40px));
+  overflow-y: auto;
+}

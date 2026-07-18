@@ -1,0 +1,14 @@
+{
+  "mcpServers": {
+    "ngol": {
+      "type": "stdio",
+      "command": "node",
+      "args": ["<ngolRoot>/mcp/dist/index.js"],
+      "env": {
+        "NGOL_WS_URL": "ws://127.0.0.1:11156/ws",
+        "NGOL_SCRIPTS_DIR": "./Nodes/CustomNodes/cs",
+        "NGOL_MAX_RESPONSE_CHARS": "12000"
+      }
+    }
+  }
+}

@@ -1,0 +1,36 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    DOTNET_STARTUP_HOOKS により、対象.NETアプリのソース改変ゼロで
+    NGOL Coreを注入起動する技術検証ブリッジ。
+    NodeGraphModLab.Core 等への compile-time 参照を一切持たず（NgolActivator.cs 参照）、
+    実行時に環境変数 NGOL_BRIDGE_PLUGIN_DIR（またはDLL隣接の ngol-plugin/）から
+    実体DLLを見つけて起動する。DLL未配置でも例外を投げず、対象アプリは通常通り動く。
+  -->
+
+  <PropertyGroup>
+    <OutputType>Library</OutputType>
+    <TargetFramework>net6.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <AssemblyName>NgolStartupHookBridge</AssemblyName>
+    <RootNamespace>NgolStartupHookBridge</RootNamespace>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <!-- ngol-plugin/ はNGOL自身のRoslynホットリロード用ソース置き場等を含みうるため、
+         このブリッジ自体のビルド対象からは除外する -->
+    <Compile Remove="ngol-plugin\**" />
+    <EmbeddedResource Remove="ngol-plugin\**" />
+    <None Remove="ngol-plugin\**" />
+    <Compile Remove="TestTargetApp\**" />
+    <EmbeddedResource Remove="TestTargetApp\**" />
+    <None Remove="TestTargetApp\**" />
+    <!-- CustomNodes/ はランタイムのRoslynホットリロード対象のソースであり、
+         NodeGraphModLab.NodeAPI への compile-time 参照を持たないこのプロジェクトのビルド対象ではない -->
+    <Compile Remove="CustomNodes\**" />
+    <EmbeddedResource Remove="CustomNodes\**" />
+    <None Remove="CustomNodes\**" />
+  </ItemGroup>
+
+</Project>

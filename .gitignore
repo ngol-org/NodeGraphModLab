@@ -1,0 +1,53 @@
+# .NET ビルド成果物
+bin/
+obj/
+*.user
+
+# リリースパッケージ出力先
+release/
+
+# Visual Studio
+.vs/
+*.suo
+*.userosscache
+*.sln.docstates
+
+# NuGet
+packages/
+*.nupkg
+*.nuspec
+*.snupkg
+
+# Node.js / WebUI
+WebUI/node_modules/
+WebUI/dist/
+WebUI/*.tsbuildinfo
+
+# MCP サーバー
+mcp/node_modules/
+mcp/dist/
+mcp/*.tsbuildinfo
+
+# サンプル組み立て成果物
+samples/*/ngol-plugin/
+samples/*/bin/
+samples/*/obj/
+samples/*/host.log
+samples/*/kvstore.db
+
+# テスト結果
+TestResults/
+*.trx
+*.coverage
+
+# ログ / 一時ファイル
+*.log
+*.tmp
+
+# OS
+.DS_Store
+Thumbs.db
+
+# エディタ
+.vscode/
+.idea/

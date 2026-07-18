@@ -1,0 +1,33 @@
+{
+  "schemaVersion": "0.2.0",
+  "id": "example-snapshot-analysis",
+  "name": "Example: Snapshot Collection",
+  "description": "Pattern 3 example",
+  "version": 1,
+  "nodes": [
+    {
+      "instanceId": "node-add",
+      "nodeTypeId": "ngol.logic.add",
+      "position": { "x": 100, "y": 100 },
+      "paramValues": { "a": 1, "b": 2 }
+    },
+    {
+      "instanceId": "node-snap",
+      "nodeTypeId": "ngol.snapshot.any",
+      "position": { "x": 350, "y": 100 },
+      "paramValues": { "portName": "value" }
+    }
+  ],
+  "connections": [
+    {
+      "fromNodeInstanceId": "node-add",
+      "fromPortName": "result",
+      "toNodeInstanceId": "node-snap",
+      "toPortName": "value"
+    }
+  ],
+  "fragments": [],
+  "fragmentLinks": [],
+  "groups": [],
+  "annotations": []
+}

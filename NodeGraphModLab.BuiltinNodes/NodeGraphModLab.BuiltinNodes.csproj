@@ -1,0 +1,21 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <AssemblyName>NodeGraphModLab.BuiltinNodes</AssemblyName>
+    <RootNamespace>NodeGraphModLab.BuiltinNodes</RootNamespace>
+    <TargetFramework>netstandard2.0</TargetFramework>
+    <LangVersion>latest</LangVersion>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Version>0.6.0</Version>
+    <Description>Node Graph Mod Lab Builtin Nodes - Builtin node pack for Node Graph Mod Lab</Description>
+    <IncludeSourceRevisionInInformationalVersion>false</IncludeSourceRevisionInInformationalVersion>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <!-- NodeAPI のみに依存（特定のホストフレームワークには依存しない）-->
+    <ProjectReference Include="..\NodeGraphModLab.NodeAPI\NodeGraphModLab.NodeAPI.csproj" />
+  </ItemGroup>
+
+
+</Project>

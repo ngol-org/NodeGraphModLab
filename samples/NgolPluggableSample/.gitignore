@@ -1,0 +1,7 @@
+# ビルド成果物
+bin/
+obj/
+
+# setup-ngol-pluggable-sample.ps1 が組み立てる実行時フォルダ（DLL・WebUI・KVStore等）
+ngol-plugin/
+host.log

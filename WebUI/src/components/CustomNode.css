@@ -1,0 +1,429 @@
+/* ============================================================
+   CustomNode スタイル
+   ============================================================ */
+
+/* Color 入力ポートのスウォッチ（dataType: "color"） */
+.port-color-swatch {
+  display: inline-block;
+  width: 12px;
+  height: 12px;
+  border-radius: 2px;
+  border: 1px solid rgba(255,255,255,0.3);
+  margin-left: 4px;
+  flex-shrink: 0;
+  vertical-align: middle;
+  position: relative;
+  top: -1px;
+}
+.port-color-swatch-unset {
+  background: linear-gradient(135deg, #555 25%, #333 25%, #333 50%, #555 50%, #555 75%, #333 75%) !important;
+  background-size: 6px 6px !important;
+  opacity: 0.7;
+}
+.custom-node {
+  position: relative;
+  background: var(--node-bg);
+  border: 1px solid var(--node-border);
+  border-top: 3px solid var(--node-accent, #3a3a5c);
+  border-radius: 6px;
+  min-width: 160px;
+  max-width: 240px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.4);
+  user-select: none;
+}
+/* 選択時：上2コーナー (::before) ＋ 下2コーナー (::after) で角丸コーナーマーカー */
+.custom-node.selected::before,
+.custom-node.selected::after {
+  content: '';
+  position: absolute;
+  left: -4px;
+  right: -4px;
+  height: 12px;
+  border-left: 2px solid var(--node-selected);
+  border-right: 2px solid var(--node-selected);
+  pointer-events: none;
+  /* 左右12px幅のみ表示し中央を非表示 */
+  -webkit-mask:
+    linear-gradient(black, black) 0 0 / 12px 100% no-repeat,
+    linear-gradient(black, black) 100% 0 / 12px 100% no-repeat;
+  mask:
+    linear-gradient(black, black) 0 0 / 12px 100% no-repeat,
+    linear-gradient(black, black) 100% 0 / 12px 100% no-repeat;
+}
+.custom-node.selected::before {
+  top: -4px;
+  border-top: 2px solid var(--node-selected);
+  border-top-left-radius: 6px;
+  border-top-right-radius: 6px;
+}
+.custom-node.selected::after {
+  bottom: -4px;
+  border-bottom: 2px solid var(--node-selected);
+  border-bottom-left-radius: 6px;
+  border-bottom-right-radius: 6px;
+}
+
+/* タブフォーカス時のアウトライン */
+.custom-node:focus {
+  outline: 2px solid var(--node-accent);
+  outline-offset: 1px;
+}
+
+/* ノードヘッダー */
+.custom-node-header {
+  padding: 6px 10px 5px;
+  border-bottom: 1px solid var(--border);
+}
+.custom-node-category {
+  display: block;
+  font-size: 9px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--node-accent, var(--text-dim));
+  margin-bottom: 2px;
+}
+.custom-node-title {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-primary);
+  line-height: 1.2;
+}
+
+/* nodeRenderer プラグイン: ヘッダー下 body（標準ノードの custom-node-body 相当） */
+.custom-node-plugin-body {
+  padding: 4px 10px 6px;
+  min-height: 28px;
+}
+.custom-node.custom-node-plugin {
+  max-width: 280px;
+}
+
+/* ポート部 */
+.custom-node-body {
+  display: flex;
+  flex-direction: row;
+  padding: 4px 0;
+}
+.custom-node-ports-col {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  flex: 1;
+}
+.input-col { align-items: flex-start; }
+.output-col { align-items: flex-end; }
+
+.custom-node-port {
+  display: flex;
+  align-items: center;
+  position: relative;
+  height: 22px;
+  padding: 0 4px;
+}
+.input-port { flex-direction: row; padding-left: 14px; }
+.output-port { flex-direction: row-reverse; padding-right: 14px; }
+
+.port-label {
+  font-size: 10px;
+  color: var(--text-secondary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 90px;
+}
+
+.port-label-bool {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  max-width: 110px;
+}
+
+.port-label-enum {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  max-width: 160px;
+  overflow: visible;
+}
+
+.node-inline-checkbox {
+  width: 11px !important;
+  height: 11px !important;
+  margin: 0 !important;
+  cursor: pointer;
+  accent-color: var(--node-accent, var(--accent));
+  flex-shrink: 0;
+}
+
+.port-label-num {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  max-width: 120px;
+}
+.node-inline-number {
+  width: 48px !important;
+  height: 14px !important;
+  font-size: 10px !important;
+  padding: 0 2px !important;
+  margin: 0 !important;
+  border: 1px solid var(--border) !important;
+  border-radius: 3px !important;
+  background: var(--bg-primary) !important;
+  color: var(--text-primary) !important;
+  text-align: right;
+  flex-shrink: 0;
+}
+.node-inline-number::-webkit-inner-spin-button,
+.node-inline-number::-webkit-outer-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+.node-inline-string {
+  width: 80px !important;
+  height: 14px !important;
+  font-size: 10px !important;
+  padding: 0 3px !important;
+  margin: 0 !important;
+  border: 1px solid var(--border) !important;
+  border-radius: 3px !important;
+  background: var(--bg-primary) !important;
+  color: var(--text-primary) !important;
+  flex-shrink: 0;
+}
+.node-inline-select {
+  width: 80px !important;
+  height: 16px !important;
+  font-size: 10px !important;
+  padding: 0 2px !important;
+  margin: 0 !important;
+  border: 1px solid var(--border) !important;
+  border-radius: 3px !important;
+  background: var(--bg-primary) !important;
+  color: var(--text-primary) !important;
+  flex-shrink: 0;
+  cursor: pointer;
+}
+
+/* Vector3 / Quaternion インラインエディタ */
+.node-vec3-editor {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  margin-left: 2px;
+  flex-shrink: 0;
+}
+.node-vec3-field {
+  display: flex;
+  align-items: center;
+  gap: 0;
+}
+.node-vec3-axis {
+  font-size: 8px;
+  color: var(--text-muted, #999);
+  width: 8px;
+  text-align: center;
+  flex-shrink: 0;
+  user-select: none;
+}
+.node-vec3-input {
+  width: 30px !important;
+  height: 14px !important;
+  font-size: 9px !important;
+  padding: 0 2px !important;
+  margin: 0 !important;
+  border: 1px solid var(--border) !important;
+  border-radius: 2px !important;
+  background: var(--bg-primary) !important;
+  color: var(--text-primary) !important;
+  text-align: right;
+  flex-shrink: 0;
+}
+.node-vec3-input::-webkit-inner-spin-button,
+.node-vec3-input::-webkit-outer-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+
+/* ReactFlow Handle スタイル上書き */
+.custom-handle {
+  width: 10px !important;
+  height: 10px !important;
+  border-radius: 50% !important;
+  border: 2px solid var(--node-accent, var(--border)) !important;
+  background: var(--bg-secondary) !important;
+  transition: background 0.15s, border-color 0.15s !important;
+}
+.custom-handle:hover,
+.custom-handle.react-flow__handle-connecting,
+.custom-handle.react-flow__handle-valid {
+  background: var(--node-accent, var(--accent)) !important;
+}
+.input-handle {
+  left: -5px !important;
+  transform: translateY(-50%) !important;
+}
+.output-handle {
+  right: -5px !important;
+  transform: translateY(-50%) !important;
+}
+
+/* 合成 exec ポート（データを持たず実行順序のみを表す。入力ポート/出力ポートが0件のノードに描画） */
+.exec-port {
+  height: 14px;
+}
+.exec-handle {
+  border-radius: 0 !important;
+  border: none !important;
+  background: var(--text-dim) !important;
+  clip-path: polygon(0% 0%, 100% 50%, 0% 100%);
+}
+.exec-handle:hover,
+.exec-handle.react-flow__handle-connecting,
+.exec-handle.react-flow__handle-valid {
+  background: var(--node-accent, var(--accent)) !important;
+}
+
+/* PERSISTENT バッジ */
+.persistent-node-badge {
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  color: #fff;
+  background: #7c3aed;
+  border-radius: 3px;
+  padding: 1px 5px;
+  margin-bottom: 3px;
+  align-self: flex-start;
+}
+
+@keyframes persistent-pulse {
+  0%, 100% { box-shadow: 0 0 0 2px #7c3aed, 0 2px 10px rgba(124,58,237,0.25); }
+  50%       { box-shadow: 0 0 0 3px #7c3aed, 0 2px 16px rgba(124,58,237,0.5); }
+}
+.custom-node.persistent-running {
+  animation: persistent-pulse 2s ease-in-out infinite;
+}
+
+/* 実行ハイライト */
+.custom-node.running {
+  box-shadow: 0 0 0 2px var(--warning), 0 2px 12px rgba(255,152,0,0.3);
+}
+.custom-node.done {
+  box-shadow: 0 0 0 2px var(--success), 0 2px 12px rgba(76,175,80,0.2);
+}
+.custom-node.node-error {
+  box-shadow: 0 0 0 2px var(--error), 0 2px 12px rgba(244,67,54,0.3);
+}
+
+/* ── 断片実行ボタン ── */
+.node-execute-fragment-btn {
+  position: absolute;
+  top: -26px;
+  right: 0px;
+  z-index: 10;
+  background: #22c55e;
+  color: #fff;
+  border: none;
+  border-radius: 4px;
+  width: auto;
+  height: 20px;
+  padding: 0 4px;
+  font-size: 10px;
+  font-weight: bold;
+  line-height: 20px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 3px;
+  box-shadow: 0 2px 6px rgba(34, 197, 94, 0.5);
+  transition: background 0.15s, transform 0.1s;
+  white-space: nowrap;
+}
+.node-execute-fragment-btn:hover {
+  background: #16a34a;
+  transform: scale(1.08);
+}
+.node-execute-fragment-btn:active {
+  transform: scale(0.95);
+}
+.node-execute-fragment-btn svg {
+  transform: scale(1.6);
+  overflow: visible;
+}
+.node-execute-fragment-btn.stop-mode {
+  background: #f44336;
+  box-shadow: 0 2px 6px rgba(244, 67, 54, 0.5);
+}
+.node-execute-fragment-btn.stop-mode:hover {
+  background: #d32f2f;
+}
+
+/* ── 断片実行ホバーハイライト ── */
+.react-flow__node.node-fragment-highlighted .custom-node {
+  box-shadow: 0 0 0 2px #22c55e, 0 0 12px 2px rgba(34, 197, 94, 0.45);
+  transition: box-shadow 0.15s ease;
+}
+.react-flow__node.node-fragment-dimmed {
+  opacity: 0.35;
+  filter: grayscale(0.25);
+  transition: opacity 0.15s ease, filter 0.15s ease;
+}
+.react-flow__node.node-fragment-co-executed .custom-node {
+  box-shadow: 0 0 0 2px #f59e0b, 0 0 12px 2px rgba(245, 158, 11, 0.45);
+  transition: box-shadow 0.15s ease;
+}
+.react-flow__node.node-fragment-snapshot-input {
+  opacity: 1;
+  filter: none;
+  transition: opacity 0.15s ease;
+}
+.react-flow__node.node-fragment-snapshot-input .custom-node {
+  box-shadow: 0 0 0 2px #06b6d4, 0 0 10px 2px rgba(6, 182, 212, 0.4);
+  transition: box-shadow 0.15s ease;
+}
+
+/* ── 角ドラッグリサイズ ── */
+/* 手動リサイズ済みノードは既定の max-width 制約を解除する */
+.custom-node.node-manually-resized {
+  max-width: none;
+}
+.node-resize-handle {
+  position: absolute;
+  width: 10px;
+  height: 10px;
+  z-index: 5;
+}
+.node-resize-handle-nw { top: -4px; left: -4px; cursor: nwse-resize; }
+.node-resize-handle-ne { top: -4px; right: -4px; cursor: nesw-resize; }
+.node-resize-handle-sw { bottom: -4px; left: -4px; cursor: nesw-resize; }
+.node-resize-handle-se { bottom: -4px; right: -4px; cursor: nwse-resize; }
+.node-resize-handle::after {
+  content: '';
+  position: absolute;
+  inset: 3px;
+  border-radius: 2px;
+  background: transparent;
+  transition: background 0.15s;
+}
+.node-resize-handle:hover::after {
+  background: var(--node-accent, var(--accent));
+}
+
+/* ── 複数選択ハイライト ── */
+/* ReactFlow の複数選択バウンディングボックス矩形を非表示 */
+.react-flow__nodesselection {
+  display: none !important;
+}
+.react-flow__node.node-multi-selected .custom-node {
+  box-shadow: 0 0 0 2px #4a9eff, 0 0 10px rgba(74, 158, 255, 0.35);
+  transition: box-shadow 0.1s ease;
+}
+/* Ctrl+ドラッグ中: 既存選択ノードを半透明グローで保持表示 */
+.react-flow__node.node-pre-selected .custom-node {
+  box-shadow: 0 0 0 1px rgba(74, 158, 255, 0.6);
+  opacity: 0.75;
+  transition: box-shadow 0.1s ease, opacity 0.1s ease;
+}

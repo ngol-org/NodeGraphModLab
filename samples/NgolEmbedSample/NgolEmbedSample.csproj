@@ -1,0 +1,44 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    「自作.NETアプリへのNGOL組み込み」サンプル。
+    追加のランタイム不要。展開済みリリースzipの NGOL/ フォルダから
+    setup-ngol-embed-sample.ps1 で pluginDir/ を組み立て、そのまま起動できる。
+  -->
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net6.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <AssemblyName>NgolEmbedSample</AssemblyName>
+    <RootNamespace>NgolEmbedSample</RootNamespace>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <!--
+      NodeGraphModLab.Core.dll / NodeGraphModLab.NodeAPI.dll / NodeGraphModLab.HostLogging.dll は
+      コンパイル時の型解決のみに使う。Private=false により自身の出力フォルダへはコピーしない。
+      実行時の実体ロードは Program.cs が pluginDir/ から Assembly.LoadFrom で行う。
+      ProjectReference にすることで MSBuild がビルド順序を保証する。
+    -->
+    <ProjectReference Include="..\..\NodeGraphModLab.Core\NodeGraphModLab.Core.csproj">
+      <Private>false</Private>
+    </ProjectReference>
+    <ProjectReference Include="..\..\NodeGraphModLab.NodeAPI\NodeGraphModLab.NodeAPI.csproj">
+      <Private>false</Private>
+    </ProjectReference>
+    <ProjectReference Include="..\..\NodeGraphModLab.HostLogging\NodeGraphModLab.HostLogging.csproj">
+      <Private>false</Private>
+    </ProjectReference>
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- ngol-plugin/ はNGOL自身のRoslynホットリロード用ソース置き場であり、
+         このコンソールアプリ自体のビルド対象ではない -->
+    <Compile Remove="ngol-plugin\**" />
+    <EmbeddedResource Remove="ngol-plugin\**" />
+    <None Remove="ngol-plugin\**" />
+  </ItemGroup>
+
+</Project>

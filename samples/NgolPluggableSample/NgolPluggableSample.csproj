@@ -1,0 +1,28 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    NGOLを「任意の依存」として組み込む.NETアプリサンプル（reflectionベース）。
+    追加のランタイム不要。NodeGraphModLab.Core 等への compile-time 参照を
+    一切持たず（NgolActivator.cs 参照）、pluginDir に実体DLLを配置するだけでNGOLが起動する。
+    DLL未配置でもビルド・起動とも成立し、その場合はNGOL無しの通常アプリとして動く。
+    ビルド時にDLL参照を持つ素直な組み込み方は samples/NgolEmbedSample/ を参照。
+  -->
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net6.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <AssemblyName>NgolPluggableSample</AssemblyName>
+    <RootNamespace>NgolPluggableSample</RootNamespace>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <!-- ngol-plugin/ はNGOL自身のRoslynホットリロード用ソース置き場であり、
+         このコンソールアプリ自体のビルド対象ではない -->
+    <Compile Remove="ngol-plugin\**" />
+    <EmbeddedResource Remove="ngol-plugin\**" />
+    <None Remove="ngol-plugin\**" />
+  </ItemGroup>
+
+</Project>

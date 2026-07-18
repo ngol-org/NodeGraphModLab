@@ -1,0 +1,20 @@
+{
+  "schemaVersion": "0.2.0",
+  "id": "example-log-json-analysis",
+  "name": "Example: LogOutput-JSON Analysis",
+  "description": "Pattern 1 example",
+  "version": 1,
+  "nodes": [
+    {
+      "instanceId": "node-compile",
+      "nodeTypeId": "custom.process_info_scanner",
+      "position": { "x": 100, "y": 100 },
+      "paramValues": {}
+    }
+  ],
+  "connections": [],
+  "fragments": [],
+  "fragmentLinks": [],
+  "groups": [],
+  "annotations": []
+}

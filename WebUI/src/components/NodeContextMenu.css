@@ -1,0 +1,111 @@
+/* ── NodeContextMenu ── */
+.node-context-menu {
+  position: fixed;
+  z-index: 1000;
+  background: var(--bg-panel);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  box-shadow: 0 4px 16px rgba(0,0,0,0.4);
+  min-width: 180px;
+  padding: 4px 0;
+  font-size: 12px;
+}
+.node-context-menu-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+  width: 100%;
+  padding: 7px 14px;
+  background: none;
+  border: none;
+  color: var(--text-primary);
+  text-align: left;
+  cursor: pointer;
+  font-size: 12px;
+}
+.node-context-menu-item:hover {
+  background: var(--bg-hover);
+}
+.node-context-menu-item-danger {
+  color: var(--error);
+}
+.node-context-menu-hint {
+  font-size: 10px;
+  color: var(--text-dim);
+}
+.node-context-menu-separator {
+  height: 1px;
+  background: var(--border);
+  margin: 3px 0;
+}
+.node-context-menu-label {
+  padding: 4px 12px 2px;
+  font-size: 10px;
+  color: var(--text-dim, #888);
+  user-select: none;
+}
+.fragment-import-menu {
+  max-height: 320px;
+  overflow-y: auto;
+  min-width: 220px;
+}
+.fragment-import-menu-header {
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--text-dim);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  cursor: default;
+  padding-bottom: 4px;
+}
+
+/* ── script_compile_error トースト ── */
+.script-compile-error-toast {
+  position: fixed;
+  bottom: 60px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 9999;
+  min-width: 340px;
+  max-width: 720px;
+  background: #2d1a1a;
+  border: 2px solid #e53935;
+  border-radius: 8px;
+  padding: 10px 14px 10px 14px;
+  box-shadow: 0 4px 24px rgba(0,0,0,0.7);
+  color: #ffcdd2;
+  font-size: 12px;
+}
+.script-compile-error-toast strong {
+  display: block;
+  color: #ef9a9a;
+  font-size: 13px;
+  margin-bottom: 6px;
+}
+.script-compile-error-msg {
+  margin: 0;
+  white-space: pre-wrap;
+  word-break: break-all;
+  max-height: 160px;
+  overflow-y: auto;
+  background: rgba(0,0,0,0.3);
+  border-radius: 4px;
+  padding: 6px 8px;
+  font-size: 11px;
+  line-height: 1.5;
+}
+.script-compile-error-dismiss {
+  position: absolute;
+  top: 6px;
+  right: 8px;
+  background: transparent;
+  border: none;
+  color: #ef9a9a;
+  cursor: pointer;
+  font-size: 14px;
+  padding: 0 4px;
+}
+.script-compile-error-dismiss:hover {
+  color: #fff;
+}
