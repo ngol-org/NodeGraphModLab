@@ -178,8 +178,8 @@ foreach ($f in @($mcpGuideSrc, $mcpJsonExSrc)) {
 Set-Content (Join-Path $mcpRootDest "package.json") -Value '{"type":"module"}' -Encoding UTF8 -NoNewline
 Write-Host "    Created: mcp/package.json (type:module)" -ForegroundColor DarkCyan
 
-# README.md / CUSTOM_NODE_GUIDE.md / LICENSE
-foreach ($doc in @("README.md", "CUSTOM_NODE_GUIDE.md", "LICENSE")) {
+# README.md / CUSTOM_NODE_GUIDE.md / LICENSE / THIRD_PARTY_NOTICES.md
+foreach ($doc in @("README.md", "CUSTOM_NODE_GUIDE.md", "LICENSE", "THIRD_PARTY_NOTICES.md")) {
     $src = Join-Path $Source $doc
     if (Test-Path $src) {
         Copy-Item $src $ngolStaging -Force
