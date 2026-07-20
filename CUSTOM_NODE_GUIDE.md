@@ -95,9 +95,12 @@ public sealed class MultiplyNode : INode
     string nodeTypeId,    // 必須: グローバル一意 ID（小文字スネークケース）
     string category,      // 必須: カテゴリ（"A/B/C" 形式で階層化）
     string displayName,   // 必須: WebUI に表示される名前
-    Description = "..."   // 省略可: ツールチップ説明文
+    Description = "...",  // 省略可: ツールチップ説明文
+    Version = "1.0.0"     // 省略可: ノード型のバージョン（SemVer想定）。省略時は "1.0.0"
 )]
 ```
+
+**`Version`**: WebUI Inspectorや`get_node_detail`に`nodeVersion`として表示される。保存済みグラフのノードが持つ版と食い違うとWebUIが警告を出す（実行はブロックされない）。詳細は`docs/node-developer-guide.md`参照。
 
 **ノード ID の命名規則**: `{プレフィックス}.{カテゴリ}.{ノード名}`
 

@@ -163,8 +163,11 @@ public sealed class MultiplyNode : INode
     string category,         // 必須: カテゴリ（スラッシュ区切り階層）
     string displayName,      // 必須: WebUI 表示名
     Description = "...",     // 省略可: ツールチップ説明文
+    Version = "1.0.0",       // 省略可: ノード型のバージョン（SemVer想定）。省略時は "1.0.0"
 )]
 ```
+
+**`Version`**: ノード型のバージョン文字列（SemVer想定）。`get_node_detail`のレスポンスやWebUI Inspectorに`nodeVersion`として表示される。グラフ保存時にノードインスタンスへ保存された`nodeTypeVersion`と現在のノード型の`Version`が食い違う場合、WebUIが警告ログを出す（実行はブロックしない、版差異の自動マイグレーションや実行ブロックは行わない）。
 
 #### ノード ID 命名規則
 

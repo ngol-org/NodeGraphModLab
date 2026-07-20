@@ -33,7 +33,7 @@ public sealed class MultiplyNode : INode
 
 | 属性 | 必須引数 | 命名規則 |
 |---|---|---|
-| `[NodeType]` | `nodeTypeId, category, displayName` | ID は `{prefix}.{category}.{name}` 小文字スネークケース。`ngol.*` は組み込み専用。独自プレフィックスを使うこと（例: `custom.*`, `myapp.*`） |
+| `[NodeType]` | `nodeTypeId, category, displayName` | ID は `{prefix}.{category}.{name}` 小文字スネークケース。`ngol.*` は組み込み専用。独自プレフィックスを使うこと（例: `custom.*`, `myapp.*`）。省略可の`Version`（SemVer文字列、既定`"1.0.0"`）で`nodeVersion`を明示できる（`get_node_detail`/WebUI Inspectorに表示。グラフ保存時の版と食い違うとWebUIが警告するのみで実行はブロックしない） |
 | `[NodePort]` | `name, direction, dataType` | `IsRequired`（Input のみ）・`ShowInlineEditor`（Output のみ。`false` で未接続時のインライン入力欄を非表示）・`Description` は任意。同一クラスに複数付与可、Input は宣言順に WebUI 表示 |
 
 ## データ型一覧（`dataType` 文字列）
