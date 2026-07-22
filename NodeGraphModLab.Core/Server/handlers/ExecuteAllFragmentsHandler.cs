@@ -1,4 +1,5 @@
 using System.Text.Json;
+using NodeGraphModLab.Core.Engine;
 using NodeGraphModLab.NodeAPI;
 
 namespace NodeGraphModLab.Server.Handlers;
@@ -14,11 +15,26 @@ internal sealed class ExecuteAllFragmentsHandler : IMessageHandler
     {
         var graph = NodeGraph.FromJson(root.GetProperty("graph").GetRawText());
         var pinned = MessageHelper.ParseStringList(root, "pinnedFragmentIds");
-        if (graph != null)
-            _ctx.PendingExecutions.Enqueue(new PendingExecution(session, graph, executeAll: true, pinnedIds: pinned));
-        else
+        if (graph == null)
+        {
             await session.SendAsync(JsonSerializer.Serialize(
                 new ErrorResponse { Message = "Invalid execute_all_fragments payload" },
                 ServerJsonContext.Default.ErrorResponse));
+            return;
+        }
+
+        var isAsync = root.TryGetProperty("async", out var a) && a.ValueKind == JsonValueKind.True;
+        if (isAsync)
+        {
+            var job = _ctx.Runner.Jobs.Create(JobKind.Execution, "$graph");
+            _ctx.PendingExecutions.Enqueue(new PendingExecution(session, graph, executeAll: true, pinnedIds: pinned, job: job));
+            await session.SendAsync(JsonSerializer.Serialize(
+                new JobStartedResponse { JobId = job.JobId },
+                ServerJsonContext.Default.JobStartedResponse));
+        }
+        else
+        {
+            _ctx.PendingExecutions.Enqueue(new PendingExecution(session, graph, executeAll: true, pinnedIds: pinned));
+        }
     }
 }

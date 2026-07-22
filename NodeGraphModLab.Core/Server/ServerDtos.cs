@@ -116,6 +116,35 @@ public sealed class ExecutionResultResponse
     [JsonPropertyName("durationMs")]  public double DurationMs { get; set; }
     /// <summary>断片実行時のみ設定。どの断片の結果かUIで区別するため。</summary>
     [JsonPropertyName("fragmentId")]  public string? FragmentId { get; set; }
+    /// <summary>このグラフ実行中に登録された永続ノードJobの一覧（jobIdとどのノードのものかの対応）。</summary>
+    [JsonPropertyName("jobs")]        public List<JobRef> Jobs { get; set; } = new();
+}
+
+/// <summary>Jobとそれがどのノードに属するかの対応。execute_graph系/run_nodeのレスポンスに付与する。</summary>
+public sealed class JobRef
+{
+    [JsonPropertyName("jobId")]         public string JobId { get; set; } = "";
+    [JsonPropertyName("nodeInstanceId")] public string NodeInstanceId { get; set; } = "";
+}
+
+/// <summary>async:true 指定時、実行を待たずに即座に返すレスポンス。</summary>
+public sealed class JobStartedResponse
+{
+    [JsonPropertyName("type")]  public string Type => "job_started";
+    [JsonPropertyName("jobId")] public string JobId { get; set; } = "";
+}
+
+/// <summary>check_job_status のレスポンス。</summary>
+public sealed class JobStatusResponse
+{
+    [JsonPropertyName("type")]           public string Type => "job_status_response";
+    [JsonPropertyName("found")]          public bool Found { get; set; }
+    [JsonPropertyName("jobId")]          public string JobId { get; set; } = "";
+    [JsonPropertyName("kind")]           public string? Kind { get; set; }
+    [JsonPropertyName("nodeInstanceId")] public string? NodeInstanceId { get; set; }
+    [JsonPropertyName("state")]          public string? State { get; set; }
+    /// <summary>進捗メモ・完了メモ・失敗理由をまとめた自由記述フィールド（オプトイン、既定はnull）。</summary>
+    [JsonPropertyName("message")]        public string? Message { get; set; }
 }
 
 public sealed class ExecutionLogPush
@@ -375,6 +404,8 @@ public sealed class ExecuteNodeResponse
     [JsonPropertyName("durationMs")]   public double DurationMs { get; init; }
     [JsonPropertyName("outputs")]      public Dictionary<string, JsonElement> Outputs { get; init; } = new();
     [JsonPropertyName("logs")]         public List<string> Logs { get; init; } = new();
+    /// <summary>このノード実行中に登録された永続ノードJobの一覧。</summary>
+    [JsonPropertyName("jobs")]         public List<JobRef> Jobs { get; init; } = new();
 }
 
 public sealed class ReleaseSnapshotResponse

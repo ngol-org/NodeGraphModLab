@@ -143,6 +143,7 @@ public sealed class GraphServer : IDisposable
             new PushNodeLiveParamsHandler(ctx),
             new DebugLogEntryHandler(ctx),
             new GetDebugLogHandler(ctx),
+            new CheckJobStatusHandler(ctx),
         ];
         _handlers = handlerList.ToDictionary(h => h.MessageType);
 
@@ -220,6 +221,7 @@ public sealed class GraphServer : IDisposable
         {
             var session = pending.Session;
             var graph = pending.Graph;
+            var executionStartUtc = DateTime.UtcNow;
 
             // 既存の実行をキャンセル
             _executionCts?.Cancel();
@@ -322,6 +324,21 @@ public sealed class GraphServer : IDisposable
                     DurationMs = result.Duration.TotalMilliseconds,
                     FragmentId = fragmentId
                 };
+
+                // このグラフ実行中に登録された永続ノードJobを収集（async指定の有無に関わらず常時）
+                response.Jobs = _runner.Jobs
+                    .GetJobsForNodes(graph.Nodes.Select(n => n.InstanceId), executionStartUtc)
+                    .Select(j => new JobRef { JobId = j.JobId, NodeInstanceId = j.NodeInstanceId })
+                    .ToList();
+
+                if (pending.Job != null)
+                {
+                    // async実行: WSレスポンスは job_started で返却済みのため、ここでは結果をJobに格納するのみ
+                    var payload = JsonSerializer.Serialize(response, ServerJsonContext.Default.ExecutionResultResponse);
+                    if (result.Success) pending.Job.Complete(payload);
+                    else pending.Job.Fail(result.ErrorMessage ?? "unknown error");
+                }
+
                 await session.SendAsync(JsonSerializer.Serialize(response, ServerJsonContext.Default.ExecutionResultResponse));
             });
         }
@@ -917,13 +934,17 @@ internal sealed class PendingExecution
 
     public HashSet<string> PinnedFragmentIds { get; }
 
+    /// <summary>async:true指定時のみ設定。この実行そのものを追跡する実行Job（Kind=Execution）。</summary>
+    public JobRecord? Job { get; }
+
     public PendingExecution(ISession session, NodeGraph graph,
-        string? fragmentId = null, bool executeAll = false, HashSet<string>? pinnedIds = null)
+        string? fragmentId = null, bool executeAll = false, HashSet<string>? pinnedIds = null, JobRecord? job = null)
     {
         Session = session;
         Graph = graph;
         FragmentId = fragmentId;
         ExecuteAll = executeAll;
         PinnedFragmentIds = pinnedIds ?? new HashSet<string>();
+        Job = job;
     }
 }

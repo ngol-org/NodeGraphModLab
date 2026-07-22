@@ -29,9 +29,19 @@ internal sealed class ExecuteNodeHandler : IMessageHandler
         root.TryGetProperty("inputs", out var inputsElem);
 
         var (paramValues, inputValues) = ResolveInputs(inputsElem, session.SnapshotStore);
+        var isAsync = root.TryGetProperty("async", out var a) && a.ValueKind == JsonValueKind.True;
+        var executionStartUtc = DateTime.UtcNow;
 
-        // キューを使わず Task.Run で直接実行（run_node は ClearAll 等が不要なため）
-        await Task.Run(async () =>
+        JobRecord? execJob = null;
+        if (isAsync)
+        {
+            execJob = _ctx.Runner.Jobs.Create(JobKind.Execution, "$run_node");
+            await session.SendAsync(JsonSerializer.Serialize(
+                new JobStartedResponse { JobId = execJob.JobId },
+                ServerJsonContext.Default.JobStartedResponse));
+        }
+
+        var runTask = Task.Run(async () =>
         {
             var baseCtx = new MainThreadExecutionContext(
                 "engine", _ctx.Log!, _ctx.Runner, _ctx.Registry, _ctx.Store, _ctx.LiveParamStore, _ctx.ExtensionServices);
@@ -48,11 +58,26 @@ internal sealed class ExecuteNodeHandler : IMessageHandler
                 ErrorMessage = result.ErrorMessage,
                 DurationMs   = result.Duration.TotalMilliseconds,
                 Outputs      = outputs,
-                Logs         = result.Logs.Select(l => l.Message).ToList()
+                Logs         = result.Logs.Select(l => l.Message).ToList(),
+                // run_node実行中に登録された永続ノードJobを収集（execute_graphと同格の優先度、async指定の有無に関わらず常時）
+                Jobs         = _ctx.Runner.Jobs
+                    .GetJobsForNodes(new[] { result.InstanceId }, executionStartUtc)
+                    .Select(j => new JobRef { JobId = j.JobId, NodeInstanceId = j.NodeInstanceId })
+                    .ToList(),
             };
+
+            if (execJob != null)
+            {
+                var payload = JsonSerializer.Serialize(resp, ServerJsonContext.Default.ExecuteNodeResponse);
+                if (result.Success) execJob.Complete(payload);
+                else execJob.Fail(result.ErrorMessage ?? "unknown error");
+            }
+
             await session.SendAsync(JsonSerializer.Serialize(
                 resp, ServerJsonContext.Default.ExecuteNodeResponse));
         });
+
+        if (!isAsync) await runTask; // 同期実行時は従来通り完了を待つ。async時はここで待たずバックグラウンド続行
     }
 
     /// <summary>

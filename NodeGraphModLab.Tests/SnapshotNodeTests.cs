@@ -234,6 +234,7 @@ internal sealed class NullRegistration : IPersistentRegistration
 {
     public bool IsActive => false;
     public void Cancel() { }
+    public void ReportProgress(string message) { }
     public void Dispose() { }
 }
 

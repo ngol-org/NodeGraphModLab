@@ -65,6 +65,10 @@ namespace NodeGraphModLab.Server;
 [JsonSerializable(typeof(DebugLogEntryDto))]
 [JsonSerializable(typeof(List<DebugLogEntryDto>))]
 [JsonSerializable(typeof(GetDebugLogResponse))]
+[JsonSerializable(typeof(JobRef))]
+[JsonSerializable(typeof(List<JobRef>))]
+[JsonSerializable(typeof(JobStartedResponse))]
+[JsonSerializable(typeof(JobStatusResponse))]
 internal sealed partial class ServerJsonContext : JsonSerializerContext
 {
 }

@@ -13,6 +13,9 @@ public sealed class SingleNodeExecutionResult
     public Dictionary<string, object?> Outputs { get; init; } = new();
     public List<LogEntry> Logs   { get; init; } = new();
     public TimeSpan Duration     { get; init; }
+
+    /// <summary>ExecuteSingleNode が生成した一時ノードインスタンスID（"rn_..."）。永続ノードJobの紐付け検索に使う。</summary>
+    public string InstanceId     { get; init; } = "";
 }
 
 /// <summary>
@@ -531,7 +534,8 @@ public sealed class GraphExecutor
                 Success = true,
                 Outputs = ctx.OutputValues,
                 Logs = logs,
-                Duration = DateTimeOffset.UtcNow - startTime
+                Duration = DateTimeOffset.UtcNow - startTime,
+                InstanceId = instanceId
             };
         }
         catch (Exception ex)
@@ -548,7 +552,8 @@ public sealed class GraphExecutor
                 ErrorMessage = ex.Message,
                 Outputs = ctx.OutputValues,
                 Logs = logs,
-                Duration = DateTimeOffset.UtcNow - startTime
+                Duration = DateTimeOffset.UtcNow - startTime,
+                InstanceId = instanceId
             };
         }
     }

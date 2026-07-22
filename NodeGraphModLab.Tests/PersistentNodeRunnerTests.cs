@@ -267,4 +267,121 @@ public class PersistentNodeRunnerTests
         runner.ClearAll();
         Assert.That(secondStopped, Is.True, "例外ノードの次のノードの OnStop も呼ばれる");
     }
+
+    // ---- Job（永続ノードJob自動発行・fail-fast） ----
+
+    private static JobSnapshot GetJob(PersistentNodeRunner runner, string nodeId)
+        => runner.Jobs.GetJobsForNodes(new[] { nodeId }, DateTime.MinValue).Single();
+
+    [Test]
+    public void Job_CreatedPending_ThenRunningAfterFirstDrain()
+    {
+        var runner = new PersistentNodeRunner();
+        RegisterNode(runner, nodeId: "n1");
+
+        Assert.That(GetJob(runner, "n1").State, Is.EqualTo(JobState.Pending));
+
+        runner.DrainUpdate();
+
+        Assert.That(GetJob(runner, "n1").State, Is.EqualTo(JobState.Running));
+    }
+
+    [Test]
+    public void Job_NormalCompletion_MarksCompleted()
+    {
+        var runner = new PersistentNodeRunner();
+        var reg = RegisterNode(runner, nodeId: "n1");
+
+        runner.DrainUpdate();
+        reg.Cancel();
+        runner.DrainUpdate(); // FireStop → Job.Complete()
+
+        Assert.That(GetJob(runner, "n1").State, Is.EqualTo(JobState.Completed));
+    }
+
+    [Test]
+    public void Job_OnUpdateException_MarksFailedAndStopsFromNextTick()
+    {
+        var runner = new PersistentNodeRunner();
+        var updateCount = 0;
+        runner.Register("n1", "N", "G", new PersistentCallbacks
+        {
+            OnUpdate = () => { updateCount++; throw new InvalidOperationException("boom"); },
+        });
+
+        runner.DrainUpdate(); // 例外発生 → Job=Failed + 自動Cancel（この tick 内の OnUpdate 自体は実行済み）
+
+        var job = GetJob(runner, "n1");
+        Assert.That(job.State, Is.EqualTo(JobState.Failed));
+        Assert.That(job.Message, Does.Contain("boom"));
+
+        runner.DrainUpdate(); // 次tickでは pruneInactive によりノードは既に除去され、OnUpdate は呼ばれない
+        Assert.That(updateCount, Is.EqualTo(1), "自動Cancel後、次のtickからはOnUpdateが呼ばれない");
+    }
+
+    [Test]
+    public void Job_OnStartException_MarksFailed()
+    {
+        var runner = new PersistentNodeRunner();
+        runner.Register("n1", "N", "G", new PersistentCallbacks
+        {
+            OnStart = () => throw new InvalidOperationException("start error"),
+            OnUpdate = () => { },
+        });
+
+        runner.DrainUpdate();
+
+        Assert.That(GetJob(runner, "n1").State, Is.EqualTo(JobState.Failed));
+    }
+
+    [Test]
+    public void Job_GetPhaseException_MarksFailedAndStopsFromNextTick()
+    {
+        var runner = new PersistentNodeRunner();
+        var phaseCount = 0;
+        runner.Register("n1", "N", "G", new TestPhaseCallbacks
+        {
+            OnCustomPhase = () => { phaseCount++; throw new InvalidOperationException("phase boom"); },
+        });
+
+        runner.DrainPhase("Test.CustomPhase");
+        Assert.That(GetJob(runner, "n1").State, Is.EqualTo(JobState.Failed));
+
+        // DrainPhase は pruneInactive:false のため、実際の除去は次の DrainUpdate() まで反映される
+        runner.DrainUpdate();
+        runner.DrainPhase("Test.CustomPhase");
+        Assert.That(phaseCount, Is.EqualTo(1), "自動Cancel後はフェーズコールバックも呼ばれない");
+    }
+
+    [Test]
+    public void Job_OnStopException_MarksFailedWithMessage()
+    {
+        var runner = new PersistentNodeRunner();
+        var reg = RegisterNode(runner, nodeId: "n1", onStop: () => throw new InvalidOperationException("stop boom"));
+
+        runner.DrainUpdate();
+        reg.Cancel();
+        runner.DrainUpdate();
+
+        var job = GetJob(runner, "n1");
+        Assert.That(job.State, Is.EqualTo(JobState.Failed));
+        Assert.That(job.Message, Does.Contain("stop boom"));
+    }
+
+    [Test]
+    public void Job_ReportProgress_UpdatesMessageWithoutChangingState()
+    {
+        var runner = new PersistentNodeRunner();
+        IPersistentRegistration? reg = null;
+        reg = runner.Register("n1", "N", "G", new PersistentCallbacks
+        {
+            OnUpdate = () => reg!.ReportProgress("50/100 done"),
+        });
+
+        runner.DrainUpdate();
+
+        var job = GetJob(runner, "n1");
+        Assert.That(job.State, Is.EqualTo(JobState.Running), "ReportProgressはStateを変更しない");
+        Assert.That(job.Message, Is.EqualTo("50/100 done"));
+    }
 }

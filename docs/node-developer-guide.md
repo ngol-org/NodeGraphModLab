@@ -559,6 +559,39 @@ ctx.RegisterPersistent(new PersistentCallbacks
 });
 ```
 
+### 自動Job追跡・例外時のfail-fast挙動・進捗報告（MCP `check_job_status` 連携）
+
+`RegisterPersistent` を呼ぶと、**ノード側のコード変更なしに**自動でJobが1つ発行される。
+AIエージェントは `execute_graph`/`execute_all_fragments`/`execute_fragment`/`run_node` のレスポンスに含まれる
+`jobs`（`{jobId, nodeInstanceId}` の配列）から自分が起動した永続ノードのjobIdを知り、
+MCP `check_job_status` でポーリングして完了・失敗を確認できる（`RegisterPersistent` を使うノードは
+`execute_graph` の30秒タイムアウトの影響を受けるため、従来は完了確認の手段が乏しかった）。
+
+**例外時の挙動（fail-fast、既存ノードにも影響あり）**: `OnStart`/`OnUpdate`/`GetPhase`経由のフェーズコールバック
+（`OnGUI` 等）から例外が漏れると、Jobが `Failed` になり**登録は自動的に停止する**（次フレームから
+コールバックが呼ばれなくなる）。以前は例外を握りつぶして動き続ける挙動だったため、**一過性のエラーを
+許容して動き続けたいノードは、該当箇所を自前で `try/catch` すること**（re-throwしなければフレームワークまで
+例外は届かず、動き続ける）。`OnStop` のみ意味合いが異なり、クリーンアップ中の例外としてJobを`Failed`にするが、
+既に登録解除中のため追加の`Cancel()`は行わない。
+
+**進捗報告（オプトイン）**: `RegisterPersistent` の戻り値 `IPersistentRegistration` には
+`ReportProgress(string message)` がある。長時間かかる解析ノードは、任意のタイミングで自由記述の
+状況メッセージを設定でき、`check_job_status` の `message` フィールドにそのまま反映される
+（固定の進捗率スキーマではなく自由文 — AIエージェントが解釈するため柔軟な内容でよい）。呼ばなくても
+動作に影響はない（既定は `null`）。
+
+```csharp
+IPersistentRegistration? reg = null;
+reg = ctx.RegisterPersistent(new PersistentCallbacks
+{
+    OnUpdate = () =>
+    {
+        // ...長時間解析の1ステップ...
+        reg?.ReportProgress($"{done}/{total} 領域を解析済み");
+    },
+});
+```
+
 ### GC 負荷への注意
 
 ```csharp

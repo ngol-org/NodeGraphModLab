@@ -11,4 +11,10 @@ public interface IPersistentRegistration : IDisposable
 
     /// <summary>登録を解除します。</summary>
     void Cancel();
+
+    /// <summary>
+    /// この永続ノードに紐づくJobの状況メッセージ（自由記述）を更新します。完全にオプトインで、
+    /// 呼ばなければ check_job_status の結果は null のままです（既存ノードは無改修で動作します）。
+    /// </summary>
+    void ReportProgress(string message);
 }

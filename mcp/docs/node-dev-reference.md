@@ -108,6 +108,28 @@ done.Wait(System.TimeSpan.FromSeconds(5));
 
 > **注意（ホスト固有の制約例）**: Unity IL2CPP のようなランタイムでは、インラインで `MonoBehaviour` 相当のコンポーネントを定義して動的登録するパターンが、ホットリロード後に型初期化エラーでクラッシュしうる。毎フレーム処理・GUI 表示は基本的に `RegisterPersistent` を使うこと。
 
+### Job自動追跡・fail-fast・進捗報告（`check_job_status`）
+
+`RegisterPersistent` を呼ぶと自動でJobが1つ発行される（ノード側の変更不要）。`execute_graph` 等のレスポンスの
+`jobs: [{jobId, nodeInstanceId}]` からjobIdを取得し、MCP `check_job_status` でポーリングして完了・失敗を確認できる。
+グラフの実行自体が長時間かかる場合は `execute_graph` 等に `async: true` を渡すことで、結果を待たずjobIdを即座に受け取れる。
+
+- **fail-fast**: `OnStart`/`OnUpdate`（またはホスト拡張コールバック）から例外が漏れると、Jobが`Failed`になり登録は自動停止する（次の更新サイクルから呼ばれない）。一過性のエラーで動き続けたい場合は該当コールバック内で自前に `try/catch` すること（re-throwしなければフレームワークに届かず継続する）。
+- **`OnStop`**: 例外時はJobを`Failed`にするが（クリーンアップ失敗として記録）、既に停止処理中のため追加の自動停止はしない。
+- **`ReportProgress(string message)`**（`IPersistentRegistration`、オプトイン）: 呼べば`check_job_status`の`message`に自由記述の状況（進捗・フェーズ名等）がそのまま反映される。呼ばなければ`null`のまま。
+
+```csharp
+IPersistentRegistration? reg = null;
+reg = ctx.RegisterPersistent(new PersistentCallbacks
+{
+    OnUpdate = () =>
+    {
+        // ...長時間処理の1ステップ...
+        reg?.ReportProgress($"{done}/{total} 完了");
+    },
+});
+```
+
 ## ctx.Store（KV Store・ホストプロセス再起動後も永続）
 
 ```csharp

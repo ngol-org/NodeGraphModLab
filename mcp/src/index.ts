@@ -93,6 +93,16 @@ async function call<T>(fn: () => Promise<T>): Promise<T> {
   }
 }
 
+/** execute_graph系/run_nodeのレスポンスに含まれる jobs 配列を人間可読な行に整形する。 */
+function formatJobs(jobs: unknown): string[] {
+  const list = (jobs as Array<Record<string, unknown>> | undefined) ?? [];
+  if (list.length === 0) return [];
+  return [
+    "Persistent-node jobs registered (poll with check_job_status):\n" +
+      list.map((j) => `  ${j["nodeInstanceId"]}: ${j["jobId"]}`).join("\n"),
+  ];
+}
+
 function readHostLog(tail = 30): string {
   const pluginDir = client.detectedPluginDir;
   if (!pluginDir) return "";
@@ -494,12 +504,21 @@ server.tool(
 // 7. execute_graph
 server.tool(
   "execute_graph",
-  "Execute a NodeGraph and return execution logs and snapshots. For the required JSON format, call get_graph_spec first. For analysis graphs that log JSON:{...}, check the Logs output. For Snapshot nodes, check the Snapshots output.",
+  "Execute a NodeGraph and return execution logs and snapshots. For the required JSON format, call get_graph_spec first. For analysis graphs that log JSON:{...}, check the Logs output. For Snapshot nodes, check the Snapshots output. " +
+  "If any node calls RegisterPersistent, a jobId is returned for it regardless of the async flag — poll it with check_job_status. " +
+  "Set async:true for graphs that may run long (large batches, etc.) to get a jobId immediately instead of waiting up to 30s for the result.",
   {
     graph: z.record(z.string(), z.unknown()).describe("NodeGraph JSON object to execute"),
+    async: z.boolean().optional().describe(
+      "If true, return a jobId immediately instead of waiting for the result. Poll the result with check_job_status."
+    ),
   },
-  async ({ graph }) => {
+  async ({ graph, async: isAsync }) => {
     return call(async () => {
+      if (isAsync) {
+        const resp = await client.sendAndWait({ type: "execute_graph", graph, async: true }, "job_started");
+        return respond(`Job started: ${resp["jobId"]}. Poll with check_job_status(jobId="${resp["jobId"]}").`, "execute_graph");
+      }
       const { result, logs, snapshots } = await client.sendAndWaitExecution(
         { type: "execute_graph", graph },
         30000
@@ -520,6 +539,7 @@ server.tool(
               .join("\n")
         );
       }
+      lines.push(...formatJobs(result["jobs"]));
       if (!result["success"]) {
         const hostLog = readHostLog(30);
         if (hostLog) lines.push("\n--- Host Log (tail 30) ---\n" + hostLog);
@@ -540,9 +560,19 @@ server.tool(
       .array(z.string())
       .optional()
       .describe("Node IDs to pin (snapshot preserved across fragments)"),
+    async: z.boolean().optional().describe(
+      "If true, return a jobId immediately instead of waiting for the result. Poll the result with check_job_status."
+    ),
   },
-  async ({ graph, pinnedNodeIds }) => {
+  async ({ graph, pinnedNodeIds, async: isAsync }) => {
     return call(async () => {
+      if (isAsync) {
+        const resp = await client.sendAndWait(
+          { type: "execute_all_fragments", graph, pinnedNodeIds: pinnedNodeIds ?? [], async: true },
+          "job_started"
+        );
+        return respond(`Job started: ${resp["jobId"]}. Poll with check_job_status(jobId="${resp["jobId"]}").`, "execute_all_fragments");
+      }
       const { result, logs, snapshots } = await client.sendAndWaitExecution(
         { type: "execute_all_fragments", graph, pinnedNodeIds: pinnedNodeIds ?? [] },
         30000
@@ -563,6 +593,7 @@ server.tool(
               .join("\n")
         );
       }
+      lines.push(...formatJobs(result["jobs"]));
       if (!result["success"]) {
         const hostLog = readHostLog(30);
         if (hostLog) lines.push("\n--- Host Log (tail 30) ---\n" + hostLog);
@@ -592,9 +623,19 @@ server.tool(
       .array(z.string())
       .optional()
       .describe("Fragment IDs to skip; their snapshots are used as-is from the session store"),
+    async: z.boolean().optional().describe(
+      "If true, return a jobId immediately instead of waiting for the result. Poll the result with check_job_status."
+    ),
   },
-  async ({ graph, fragmentId, pinnedFragmentIds }) => {
+  async ({ graph, fragmentId, pinnedFragmentIds, async: isAsync }) => {
     return call(async () => {
+      if (isAsync) {
+        const resp = await client.sendAndWait(
+          { type: "execute_fragment", graph, fragmentId, pinnedFragmentIds: pinnedFragmentIds ?? [], async: true },
+          "job_started"
+        );
+        return respond(`Job started: ${resp["jobId"]}. Poll with check_job_status(jobId="${resp["jobId"]}").`, "execute_fragment");
+      }
       const { result, logs, snapshots } = await client.sendAndWaitExecution(
         { type: "execute_fragment", graph, fragmentId, pinnedFragmentIds: pinnedFragmentIds ?? [] },
         30000
@@ -615,6 +656,7 @@ server.tool(
               .join("\n")
         );
       }
+      lines.push(...formatJobs(result["jobs"]));
       if (!result["success"]) {
         const hostLog = readHostLog(30);
         if (hostLog) lines.push("\n--- Host Log (tail 30) ---\n" + hostLog);
@@ -644,9 +686,20 @@ server.tool(
         "Input port values. Primitives (number, string, boolean, null) are passed directly. " +
         "Reference-type values from a previous run_node call must be passed as {\"$snapshot\": \"<handle>\"} objects."
       ),
+    async: z.boolean().optional().describe(
+      "If true, return a jobId immediately instead of waiting for the result. Poll the result with check_job_status. " +
+      "Rarely needed for run_node since a single node's Execute() usually returns quickly."
+    ),
   },
-  async ({ nodeTypeId, inputs }) => {
+  async ({ nodeTypeId, inputs, async: isAsync }) => {
     return call(async () => {
+      if (isAsync) {
+        const resp = await client.sendAndWait(
+          { type: "execute_node", nodeTypeId, inputs: inputs ?? {}, async: true },
+          "job_started"
+        );
+        return respond(`Job started: ${resp["jobId"]}. Poll with check_job_status(jobId="${resp["jobId"]}").`, "run_node");
+      }
       const resp = await client.sendAndWait(
         { type: "execute_node", nodeTypeId, inputs: inputs ?? {} },
         "execute_node_response",
@@ -678,11 +731,35 @@ server.tool(
       if (logs.length > 0) {
         lines.push("Logs:\n" + logs.map((l: string) => `  ${l}`).join("\n"));
       }
+      lines.push(...formatJobs(resp["jobs"]));
       if (!success) {
         const hostLog = readHostLog(30);
         if (hostLog) lines.push("\n--- Host Log (tail 30) ---\n" + hostLog);
       }
       return respond(lines.join("\n"), "run_node");
+    });
+  }
+);
+
+// 9a. check_job_status
+server.tool(
+  "check_job_status",
+  "Poll the state of a job returned by execute_graph/execute_all_fragments/execute_fragment/run_node — either a persistent-node job (created automatically whenever a node calls RegisterPersistent) or an async execution job (created when async:true was passed). " +
+  "If state is Pending or Running, wait a few seconds before calling again. If Completed or Failed, use the message field (free-form text set by the node or the framework; may be null if the node never reported anything).",
+  {
+    jobId: z.string().describe("Job ID returned in the 'jobs' list or as a job_started response"),
+  },
+  async ({ jobId }) => {
+    return call(async () => {
+      const resp = await client.sendAndWait({ type: "check_job_status", jobId }, "job_status_response", 10000);
+      if (!resp["found"]) {
+        return respond(`Job not found (invalid jobId, or expired after completion — jobs are pruned ~30min after finishing): ${jobId}`);
+      }
+      const lines = [
+        `Job [${jobId}] kind=${resp["kind"]} node=${resp["nodeInstanceId"]} state=${resp["state"]}`,
+      ];
+      if (resp["message"] != null) lines.push(`Message: ${resp["message"]}`);
+      return respond(lines.join("\n"), "check_job_status");
     });
   }
 );
