@@ -383,6 +383,20 @@ public sealed class StopPersistentResponse
     [JsonPropertyName("stoppedCount")] public int StoppedCount { get; set; }
 }
 
+public sealed class PauseHotReloadResponse
+{
+    [JsonPropertyName("type")]         public string Type => "pause_hot_reload_response";
+    [JsonPropertyName("paused")]       public bool Paused { get; set; }
+    [JsonPropertyName("pendingCount")] public int PendingCount { get; set; }
+}
+
+public sealed class ResumeHotReloadResponse
+{
+    [JsonPropertyName("type")]         public string Type => "resume_hot_reload_response";
+    [JsonPropertyName("paused")]       public bool Paused { get; set; }
+    [JsonPropertyName("pendingCount")] public int PendingCount { get; set; }
+}
+
 public sealed class StopPersistentNodeResponse
 {
     [JsonPropertyName("type")]           public string Type => "stop_persistent_node_response";

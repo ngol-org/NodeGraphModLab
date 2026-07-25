@@ -167,6 +167,10 @@ ctx.Store.Delete("myapp.lastTarget");
   合流させる（クローンした OSS がコンパイル時コード生成に依存する場合に使用。レガシー
   `ISourceGenerator` は非対応）
 
+複数ファイルを続けて書き換える場合、`pause_hot_reload` で一時的にホットリロードを止めてから
+`Write`/`save_node_source` を繰り返し、`resume_hot_reload` でまとめてコンパイルさせると、
+編集途中の状態がコンパイルされてログにエラーが残るのを防げる。
+
 ## 断片グラフ連携（Snapshot / PushLive）の要点
 
 - 断片（Fragment）はグラフ内の連結成分。`fragmentLinks` で断片間を Snapshot 経由接続する

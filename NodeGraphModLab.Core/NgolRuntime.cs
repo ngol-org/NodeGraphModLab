@@ -40,6 +40,7 @@ public sealed class NgolRuntime : IDisposable
 
     private readonly ConcurrentDictionary<string, DateTime> _pendingRecompile = new();
     private readonly ConcurrentDictionary<string, string> _scriptNodeId = new();
+    private readonly Server.HotReloadGate _hotReloadGate = new();
 
     // .srclist で解決済みの追加ソースファイル一覧（ノード.csパス→解決済み絶対パス一覧、自身を含む）
     private readonly ConcurrentDictionary<string, List<string>> _srclistResolved = new(StringComparer.OrdinalIgnoreCase);
@@ -55,6 +56,7 @@ public sealed class NgolRuntime : IDisposable
     {
         _log = log;
         _options = options ?? new NgolRuntimeOptions();
+        _hotReloadGate.SetPendingCountProvider(() => _pendingRecompile.Count);
     }
 
     public void Initialize(string pluginDir)
@@ -121,7 +123,8 @@ public sealed class NgolRuntime : IDisposable
                 _options.GameName,
                 _extensionHost.ServiceRegistry,
                 _extensionHost,
-                _options.RuntimeType);
+                _options.RuntimeType,
+                _hotReloadGate);
             _graphServer.Start();
             serverReady.TrySetResult(true);
 
@@ -191,15 +194,18 @@ public sealed class NgolRuntime : IDisposable
 
     public void Tick()
     {
-        var now = DateTime.Now;
-        foreach (var kv in _pendingRecompile)
+        if (!_hotReloadGate.IsPaused)
         {
-            if ((now - kv.Value).TotalMilliseconds >= HotReloadDebounceMs)
+            var now = DateTime.Now;
+            foreach (var kv in _pendingRecompile)
             {
-                if (_pendingRecompile.TryRemove(kv.Key, out _))
+                if ((now - kv.Value).TotalMilliseconds >= HotReloadDebounceMs)
                 {
-                    var path = kv.Key;
-                    _ = Task.Run(async () => await HotReloadPathAsync(path));
+                    if (_pendingRecompile.TryRemove(kv.Key, out _))
+                    {
+                        var path = kv.Key;
+                        _ = Task.Run(async () => await HotReloadPathAsync(path));
+                    }
                 }
             }
         }
@@ -243,15 +249,18 @@ public sealed class NgolRuntime : IDisposable
             {
                 Thread.Sleep(NgolConfig.DirectModeIntervalMs);
 
-                var now = DateTime.Now;
-                foreach (var kv in _pendingRecompile)
+                if (!_hotReloadGate.IsPaused)
                 {
-                    if ((now - kv.Value).TotalMilliseconds >= 500)
+                    var now = DateTime.Now;
+                    foreach (var kv in _pendingRecompile)
                     {
-                        if (_pendingRecompile.TryRemove(kv.Key, out DateTime _))
+                        if ((now - kv.Value).TotalMilliseconds >= 500)
                         {
-                            var path = kv.Key;
-                            _ = Task.Run(async () => await HotReloadPathAsync(path));
+                            if (_pendingRecompile.TryRemove(kv.Key, out DateTime _))
+                            {
+                                var path = kv.Key;
+                                _ = Task.Run(async () => await HotReloadPathAsync(path));
+                            }
                         }
                     }
                 }
@@ -399,6 +408,20 @@ public sealed class NgolRuntime : IDisposable
         }
     }
 
+    /// <summary>
+    /// .rsp/.srclist 削除時の復帰コンパイルなど、デバウンスを経由しない即時コンパイル要求の入り口。
+    /// 一時停止中は _pendingRecompile に載せて既存のデバウンスドレインへ合流させ、再開時に処理する。
+    /// </summary>
+    private void TriggerCompile(string nodeCsPath)
+    {
+        if (_hotReloadGate.IsPaused)
+        {
+            _pendingRecompile[nodeCsPath] = DateTime.Now;
+            return;
+        }
+        _ = Task.Run(async () => await CompileScriptFileAsync(nodeCsPath, isHotReload: true));
+    }
+
     private void OnScriptFileDeleted(object sender, FileSystemEventArgs e)
     {
         _pendingRecompile.TryRemove(e.FullPath, out DateTime _dt);
@@ -410,7 +433,7 @@ public sealed class NgolRuntime : IDisposable
             var nodeCsPath = GetNodeCsPathForSrclist(e.FullPath);
             _log.LogInfo($"[Scripts] srclist deleted: {Path.GetFileName(e.FullPath)} — reverting to single-file compile");
             if (File.Exists(nodeCsPath))
-                _ = Task.Run(async () => await CompileScriptFileAsync(nodeCsPath, isHotReload: true));
+                TriggerCompile(nodeCsPath);
             return;
         }
 
@@ -419,7 +442,7 @@ public sealed class NgolRuntime : IDisposable
             var nodeCsPath = Path.ChangeExtension(e.FullPath, ".cs");
             _log.LogInfo($"[Scripts] rsp deleted: {Path.GetFileName(e.FullPath)} — reverting to default compile options");
             if (File.Exists(nodeCsPath))
-                _ = Task.Run(async () => await CompileScriptFileAsync(nodeCsPath, isHotReload: true));
+                TriggerCompile(nodeCsPath);
             return;
         }
 

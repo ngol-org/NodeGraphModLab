@@ -377,6 +377,42 @@ server.tool(
   }
 );
 
+// 3e. pause_hot_reload
+server.tool(
+  "pause_hot_reload",
+  "Pause automatic script hot-reload (the .cs/.rsp/.srclist file-watcher-triggered recompile). Use this before writing multiple related files (e.g. a node .cs plus a shared file it references via .srclist, or several interdependent nodes) so intermediate, half-edited states don't get compiled and logged as spurious errors. Call resume_hot_reload when done editing.",
+  {},
+  async () => {
+    return call(async () => {
+      const resp = await client.sendAndWait(
+        { type: "pause_hot_reload" },
+        "pause_hot_reload_response"
+      );
+      const pendingCount = (resp["pendingCount"] as number | undefined) ?? 0;
+      return respond(
+        `Hot reload paused. ${pendingCount} file(s) currently queued (will compile once resumed).`
+      );
+    });
+  }
+);
+
+// 3f. resume_hot_reload
+server.tool(
+  "resume_hot_reload",
+  "Resume automatic script hot-reload after pause_hot_reload. Any .cs/.rsp/.srclist files that changed while paused are compiled immediately.",
+  {},
+  async () => {
+    return call(async () => {
+      const resp = await client.sendAndWait(
+        { type: "resume_hot_reload" },
+        "resume_hot_reload_response"
+      );
+      const pendingCount = (resp["pendingCount"] as number | undefined) ?? 0;
+      return respond(`Hot reload resumed. ${pendingCount} file(s) queued for recompilation.`);
+    });
+  }
+);
+
 // 4. list_graphs
 server.tool(
   "list_graphs",

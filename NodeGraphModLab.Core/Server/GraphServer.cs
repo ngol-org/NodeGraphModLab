@@ -76,7 +76,8 @@ public sealed class GraphServer : IDisposable
         string gameName = "",
         ExtensionServiceRegistry? extensionServices = null,
         ExtensionHost? extensionHost = null,
-        string? runtimeType = null)
+        string? runtimeType = null,
+        HotReloadGate? hotReloadGate = null)
     {
         _port = port;
         _registry = registry;
@@ -100,6 +101,7 @@ public sealed class GraphServer : IDisposable
         var resolvedNodesDir = nodesDir ?? Path.Combine(graphSaveDir, "..", "Nodes", "CustomNodes", "cs");
         var resolvedNodePacksDir = nodePacksDir ?? Path.Combine(graphSaveDir, "..", "Nodes", "CustomNodes", "dll");
         var resolvedScriptNodeId = scriptNodeId ?? new ConcurrentDictionary<string, string>();
+        var resolvedHotReloadGate = hotReloadGate ?? new HotReloadGate();
 
         Directory.CreateDirectory(_graphSaveDir);
 
@@ -111,7 +113,8 @@ public sealed class GraphServer : IDisposable
             executor,
             extensionServices,
             _store,
-            SendOpenGraphToLatestBrowser);
+            SendOpenGraphToLatestBrowser,
+            resolvedHotReloadGate);
 
         IMessageHandler[] handlerList =
         [
@@ -144,6 +147,8 @@ public sealed class GraphServer : IDisposable
             new DebugLogEntryHandler(ctx),
             new GetDebugLogHandler(ctx),
             new CheckJobStatusHandler(ctx),
+            new PauseHotReloadHandler(ctx),
+            new ResumeHotReloadHandler(ctx),
         ];
         _handlers = handlerList.ToDictionary(h => h.MessageType);
 

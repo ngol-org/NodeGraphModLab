@@ -6,8 +6,9 @@ using NodeGraphModLab.NodeAPI;
 namespace NodeGraphModLab.Server;
 
 /// <summary>
-/// System.Text.Json のソースジェネレーター コンテキスト。
-/// AOT / IL2CPP 互換のため、シリアライズ対象型を全て登録する。
+/// System.Text.Json のソースジェネレーターコンテキスト。
+/// ホストの種類によらず同一のリフレクション不要なシリアライズ経路を保証するため、
+/// シリアライズ対象型を全て明示登録する。
 /// </summary>
 [JsonSerializable(typeof(NodeListResponse))]
 [JsonSerializable(typeof(NodeTypeInfo))]
@@ -42,6 +43,8 @@ namespace NodeGraphModLab.Server;
 [JsonSerializable(typeof(List<PersistentNodeInfo>))]
 [JsonSerializable(typeof(PersistentNodeChangedPush))]
 [JsonSerializable(typeof(StopPersistentResponse))]
+[JsonSerializable(typeof(PauseHotReloadResponse))]
+[JsonSerializable(typeof(ResumeHotReloadResponse))]
 [JsonSerializable(typeof(StopPersistentNodeResponse))]
 [JsonSerializable(typeof(ListPersistentNodesResponse))]
 [JsonSerializable(typeof(ExecuteNodeResponse))]

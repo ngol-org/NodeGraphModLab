@@ -23,6 +23,7 @@ internal sealed class HandlerContext
     public ExtensionServiceRegistry? ExtensionServices { get; }
     public IKVStore? Store { get; }
     public Func<string, Task<bool>> SendOpenGraphToLatestBrowser { get; }
+    public HotReloadGate HotReloadGate { get; }
 
     public HandlerContext(
         NodeRegistry registry,
@@ -40,7 +41,8 @@ internal sealed class HandlerContext
         GraphExecutor executor,
         ExtensionServiceRegistry? extensionServices = null,
         IKVStore? store = null,
-        Func<string, Task<bool>>? sendOpenGraphToLatestBrowser = null)
+        Func<string, Task<bool>>? sendOpenGraphToLatestBrowser = null,
+        HotReloadGate? hotReloadGate = null)
     {
         Registry = registry;
         LiveParamStore = liveParamStore;
@@ -58,5 +60,6 @@ internal sealed class HandlerContext
         ExtensionServices = extensionServices;
         Store = store;
         SendOpenGraphToLatestBrowser = sendOpenGraphToLatestBrowser ?? (async _ => false);
+        HotReloadGate = hotReloadGate ?? new HotReloadGate();
     }
 }
