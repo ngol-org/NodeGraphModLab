@@ -88,45 +88,102 @@ public sealed class NgolRuntime : IDisposable
         Directory.CreateDirectory(nodePacksDir);
 
         var extraNodeDirs = ResolveCustomNodeDirectories(NgolConfig.CustomNodeDirectories, nodesDir, _log);
+        var scanDirs = new List<string> { nodesDir };
+        scanDirs.AddRange(extraNodeDirs);
 
         RoslynCompiler.LoadPersistedNodes(dynamicNodesDir, _nodeRegistry, _log);
-        var scriptsLoadTask = Task.Run(async () =>
-        {
-            await LoadCustomScriptsAsync(nodesDir);
-            foreach (var dir in extraNodeDirs) await LoadCustomScriptsAsync(dir);
-        });
+
+        // 読み込みタスクは起動時自動実行をサーバー起動完了後に発火させる必要があるため、
+        // TaskCompletionSource で待ち合わせる。初期化が例外で中断した場合は finally で false を渡し、
+        // タスクが永久待機しないようにする。
+        var serverReady = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+        _ = Task.Run(() => LoadCustomScriptsAndRunStartupAsync(scanDirs, serverReady.Task));
 
         StartScriptsWatcher(nodesDir, isPrimary: true);
         foreach (var dir in extraNodeDirs) StartScriptsWatcher(dir, isPrimary: false);
 
-        _graphServer = new GraphServer(
-            NgolConfig.Port,
-            _nodeRegistry,
-            _graphExecutor,
-            _log,
-            graphSaveDir,
-            webUiDir,
-            _runner,
-            dynamicNodesDir,
-            nodesDir,
-            nodePacksDir,
-            _scriptNodeId,
-            _store,
-            _options.PluginVersion,
-            _options.GameName,
-            _extensionHost.ServiceRegistry,
-            _extensionHost,
-            _options.RuntimeType);
-        _graphServer.Start();
-
-        _ = scriptsLoadTask.ContinueWith(_ => RunStartupAutoExecution(), TaskScheduler.Default);
-
-        _log.LogInfo("[NgolRuntime] initialized");
-
-        if (_options.EnableDirectMode)
+        try
         {
-            _drainThread = new Thread(DrainLoop) { IsBackground = true, Name = "NGOL-Drain" };
-            _drainThread.Start();
+            _graphServer = new GraphServer(
+                NgolConfig.Port,
+                _nodeRegistry,
+                _graphExecutor,
+                _log,
+                graphSaveDir,
+                webUiDir,
+                _runner,
+                dynamicNodesDir,
+                nodesDir,
+                nodePacksDir,
+                _scriptNodeId,
+                _store,
+                _options.PluginVersion,
+                _options.GameName,
+                _extensionHost.ServiceRegistry,
+                _extensionHost,
+                _options.RuntimeType);
+            _graphServer.Start();
+            serverReady.TrySetResult(true);
+
+            _log.LogInfo("[NgolRuntime] initialized");
+
+            if (_options.EnableDirectMode)
+            {
+                _drainThread = new Thread(DrainLoop) { IsBackground = true, Name = "NGOL-Drain" };
+                _drainThread.Start();
+            }
+        }
+        finally
+        {
+            serverReady.TrySetResult(false);
+        }
+    }
+
+    /// <summary>
+    /// 起動時のカスタムノード読み込み全体を、以下の順で進める。
+    /// 1. プリスキャン（.srclist インデックス構築 + 全 .cs のノードタイプ ID 抽出）
+    /// 2. 最優先指定ノード・起動時自動実行の対象ノードを先にコンパイル
+    /// 3. サーバー起動完了を待って起動時自動実行を発火
+    /// 4. 残りのノードを継続コンパイル（3 の実行と並行して進む）
+    /// </summary>
+    private async Task LoadCustomScriptsAndRunStartupAsync(IReadOnlyList<string> scanDirs, Task<bool> serverReady)
+    {
+        var compiledPaths = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        var prescan = await PrescanCustomScriptsAsync(scanDirs);
+
+        NodeGraph? startupGraph = null;
+        try
+        {
+            startupGraph = TryLoadStartupGraph();
+            var startupNodeTypeIds = CollectStartupNodeTypeIds(startupGraph);
+            var plan = BuildPriorityCompileOrder(
+                prescan.NodeTypeIdToPath,
+                NgolConfig.PriorityCompileNodeTypeIds,
+                startupNodeTypeIds,
+                out var unresolved);
+
+            foreach (var id in unresolved)
+                _log.LogWarning($"[Startup] priorityCompileNodeTypeIds entry '{id}' has no matching custom node source; skipping priority compile.");
+
+            if (plan.Count > 0)
+            {
+                _log.LogInfo($"[Startup] Priority-compiling {plan.Count} source file(s) before auto-execution");
+                await CompileScriptFilesAsync(plan, compiledPaths);
+            }
+        }
+        catch (Exception ex) { _log.LogError($"[Startup] Priority compile error: {ex.Message}"); }
+
+        var ready = false;
+        try { ready = await serverReady; }
+        catch (Exception ex) { _log.LogError($"[Startup] Failed to wait for server startup: {ex.Message}"); }
+
+        if (ready) RunStartupAutoExecution(startupGraph);
+        else _log.LogWarning("[Startup] Runtime not ready; skipping auto-execution.");
+
+        foreach (var dir in scanDirs)
+        {
+            if (prescan.CompileTargetsByDir.TryGetValue(dir, out var targets))
+                await CompileScriptFilesAsync(targets, compiledPaths);
         }
     }
 
@@ -603,55 +660,163 @@ public sealed class NgolRuntime : IDisposable
         }
     }
 
-    private async Task LoadCustomScriptsAsync(string scriptsDir)
+    /// <summary>起動時のカスタムノード .cs 事前スキャン結果。</summary>
+    private sealed class ScriptPrescanResult
     {
-        if (_nodeRegistry == null) return;
-        try
-        {
-            // 1. 全 .srclist を先に読み込みインデックスを構築（順引き・逆引き）
-            var srclistFiles = Directory.GetFiles(scriptsDir, "*.srclist", SearchOption.AllDirectories);
-            foreach (var srclistPath in srclistFiles)
-            {
-                try { RebuildSrclistIndex(srclistPath); }
-                catch (Exception ex) { _log.LogWarning($"[Scripts] Failed to index srclist {srclistPath}: {ex.Message}"); }
-            }
-            if (srclistFiles.Length > 0)
-                _log.LogInfo($"[Scripts] {srclistFiles.Length} .srclist file(s) indexed");
+        /// <summary>監視ディレクトリごとの、単体コンパイル対象 .cs パス一覧（ディレクトリ走査順）。</summary>
+        public Dictionary<string, List<string>> CompileTargetsByDir { get; } = new(StringComparer.OrdinalIgnoreCase);
 
-            var csFiles = Directory.GetFiles(scriptsDir, "*.cs", SearchOption.AllDirectories);
-            if (csFiles.Length == 0) return;
-
-            _log.LogInfo($"[Scripts] {csFiles.Length} .cs file(s) found in {scriptsDir}");
-            foreach (var file in csFiles)
-            {
-                try
-                {
-                    if (await ShouldSkipStandaloneCompileAsync(file))
-                    {
-                        _log.LogDebug($"[Scripts] Skipping non-node file (no [NodeType] / shared via .srclist): {Path.GetFileName(file)}");
-                        continue;
-                    }
-                    await CompileScriptFileAsync(file, isHotReload: false);
-                }
-                catch (Exception ex) { _log.LogError($"[Scripts] Error loading {Path.GetFileName(file)}: {ex.Message}"); }
-            }
-        }
-        catch (Exception ex) { _log.LogError($"[Scripts] LoadCustomScripts error: {ex.Message}"); }
+        /// <summary>ノードタイプ ID → それを宣言している .cs パス。</summary>
+        public Dictionary<string, string> NodeTypeIdToPath { get; } = new(StringComparer.Ordinal);
     }
 
     /// <summary>
-    /// 起動時スキャンで、この .cs を単体ノードとしてコンパイルする必要が無いかを判定する。
-    /// ファイル読み取り部分のみを担い、実際の判定は <see cref="ShouldSkipStandaloneCompile"/> に委譲する。
+    /// 監視対象ディレクトリ配下の .cs を 1 回ずつ読み、単体コンパイル対象の判定と
+    /// ノードタイプ ID の抽出をまとめて行う。ID → ファイルの対応が分かることで、
+    /// 起動時自動実行に必要なノードだけを先にコンパイルできる。
     /// </summary>
-    private async Task<bool> ShouldSkipStandaloneCompileAsync(string filePath)
+    private async Task<ScriptPrescanResult> PrescanCustomScriptsAsync(IReadOnlyList<string> scanDirs)
     {
-        var hasDependents = _sharedFileDependents.ContainsKey(filePath);
+        var result = new ScriptPrescanResult();
+        if (_nodeRegistry == null) return result;
+
+        // .srclist は全ディレクトリ分を先に索引化する。共有ファイルと、それを参照するノードが
+        // 別ディレクトリにある構成でも hasDependents 判定が正しくなる。
+        foreach (var scriptsDir in scanDirs)
+        {
+            try
+            {
+                var srclistFiles = Directory.GetFiles(scriptsDir, "*.srclist", SearchOption.AllDirectories);
+                foreach (var srclistPath in srclistFiles)
+                {
+                    try { RebuildSrclistIndex(srclistPath); }
+                    catch (Exception ex) { _log.LogWarning($"[Scripts] Failed to index srclist {srclistPath}: {ex.Message}"); }
+                }
+                if (srclistFiles.Length > 0)
+                    _log.LogInfo($"[Scripts] {srclistFiles.Length} .srclist file(s) indexed in {scriptsDir}");
+            }
+            catch (Exception ex) { _log.LogError($"[Scripts] srclist scan error in {scriptsDir}: {ex.Message}"); }
+        }
+
+        foreach (var scriptsDir in scanDirs)
+        {
+            var targets = new List<string>();
+            result.CompileTargetsByDir[scriptsDir] = targets;
+
+            try
+            {
+                var csFiles = Directory.GetFiles(scriptsDir, "*.cs", SearchOption.AllDirectories);
+                if (csFiles.Length == 0) continue;
+
+                _log.LogInfo($"[Scripts] {csFiles.Length} .cs file(s) found in {scriptsDir}");
+
+                foreach (var file in csFiles)
+                {
+                    try
+                    {
 #if NET6_0_OR_GREATER
-        var source = await File.ReadAllTextAsync(filePath);
+                        var source = await File.ReadAllTextAsync(file);
 #else
-        var source = await Task.Run(() => File.ReadAllText(filePath));
+                        var source = await Task.Run(() => File.ReadAllText(file));
 #endif
-        return ShouldSkipStandaloneCompile(source, hasDependents);
+                        if (ShouldSkipStandaloneCompile(source, _sharedFileDependents.ContainsKey(file)))
+                        {
+                            _log.LogDebug($"[Scripts] Skipping non-node file (no [NodeType] / shared via .srclist): {Path.GetFileName(file)}");
+                            continue;
+                        }
+
+                        targets.Add(file);
+
+                        foreach (var id in ExtractNodeTypeIds(source))
+                        {
+                            if (result.NodeTypeIdToPath.TryGetValue(id, out var existing))
+                            {
+                                _log.LogWarning($"[Scripts] Node type ID '{id}' is declared in both '{Path.GetFileName(existing)}' and '{Path.GetFileName(file)}'; priority compile will use the former.");
+                                continue;
+                            }
+                            result.NodeTypeIdToPath[id] = file;
+                        }
+                    }
+                    catch (Exception ex) { _log.LogError($"[Scripts] Prescan error for {Path.GetFileName(file)}: {ex.Message}"); }
+                }
+            }
+            catch (Exception ex) { _log.LogError($"[Scripts] Prescan error in {scriptsDir}: {ex.Message}"); }
+        }
+
+        return result;
+    }
+
+    /// <summary>
+    /// 指定した .cs 群を順にコンパイル・登録する。<paramref name="compiledPaths"/> に
+    /// 記録済みのパスはスキップするため、優先コンパイル済みのファイルが再コンパイルされない。
+    /// </summary>
+    private async Task CompileScriptFilesAsync(IReadOnlyList<string> filePaths, HashSet<string> compiledPaths)
+    {
+        foreach (var file in filePaths)
+        {
+            if (!compiledPaths.Add(file)) continue;
+            try { await CompileScriptFileAsync(file, isHotReload: false); }
+            catch (Exception ex) { _log.LogError($"[Scripts] Error loading {Path.GetFileName(file)}: {ex.Message}"); }
+        }
+    }
+
+    private static readonly System.Text.RegularExpressions.Regex NodeTypeIdPattern =
+        new(@"\[\s*NodeType(?:Attribute)?\s*\(\s*""([^""]+)""",
+            System.Text.RegularExpressions.RegexOptions.Compiled);
+
+    /// <summary>
+    /// ソース中の [NodeType("...")] からノードタイプ ID を宣言順に抽出する（純粋関数、単体テスト用に internal 公開）。
+    /// ID を文字列リテラル以外（定数参照等）で指定している場合は抽出できないが、その場合は
+    /// 優先コンパイルの対象にならないだけで、通常のコンパイルパスで登録される。
+    /// </summary>
+    internal static List<string> ExtractNodeTypeIds(string source)
+    {
+        var ids = new List<string>();
+        foreach (System.Text.RegularExpressions.Match match in NodeTypeIdPattern.Matches(source))
+        {
+            var id = match.Groups[1].Value.Trim();
+            if (id.Length == 0) continue;
+            if (ids.Contains(id, StringComparer.Ordinal)) continue;
+            ids.Add(id);
+        }
+        return ids;
+    }
+
+    /// <summary>
+    /// 起動時自動実行より前にコンパイルすべき .cs パスを順序付きで返す（純粋関数、単体テスト用に internal 公開）。
+    /// 設定で明示指定されたノード（記載順）→ 起動時自動実行の対象ノード、の順に並べ、同一ファイルの重複は除去する。
+    /// 起動対象 ID に対応する .cs が無い場合は、ビルトイン等の既に登録済みのノードなので黙って無視する。
+    /// </summary>
+    internal static List<string> BuildPriorityCompileOrder(
+        IReadOnlyDictionary<string, string> nodeTypeIdToPath,
+        IReadOnlyList<string> priorityNodeTypeIds,
+        IReadOnlyList<string> startupNodeTypeIds,
+        out List<string> unresolvedPriorityNodeTypeIds)
+    {
+        var order = new List<string>();
+        var seenPaths = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        unresolvedPriorityNodeTypeIds = new List<string>();
+
+        foreach (var rawId in priorityNodeTypeIds)
+        {
+            if (string.IsNullOrWhiteSpace(rawId)) continue;
+            var id = rawId.Trim();
+            if (!nodeTypeIdToPath.TryGetValue(id, out var path))
+            {
+                unresolvedPriorityNodeTypeIds.Add(id);
+                continue;
+            }
+            if (seenPaths.Add(path)) order.Add(path);
+        }
+
+        foreach (var rawId in startupNodeTypeIds)
+        {
+            if (string.IsNullOrWhiteSpace(rawId)) continue;
+            if (!nodeTypeIdToPath.TryGetValue(rawId.Trim(), out var path)) continue;
+            if (seenPaths.Add(path)) order.Add(path);
+        }
+
+        return order;
     }
 
     /// <summary>
@@ -664,7 +829,43 @@ public sealed class NgolRuntime : IDisposable
     internal static bool ShouldSkipStandaloneCompile(string source, bool hasDependents)
         => hasDependents || !source.Contains("[NodeType");
 
-    private void RunStartupAutoExecution()
+    /// <summary>
+    /// 起動時自動実行の対象グラフを読み込む。startupGraphId が未設定、または
+    /// グラフが見つからない場合は null を返す（警告は実行時に <see cref="RunStartupAutoExecution"/> が出す）。
+    /// </summary>
+    private NodeGraph? TryLoadStartupGraph()
+    {
+        var graphId = NgolConfig.StartupGraphId;
+        if (string.IsNullOrWhiteSpace(graphId) || _graphSaveDir == null) return null;
+        return GraphPersistenceHelper.TryLoad(graphId.Trim(), _graphSaveDir);
+    }
+
+    /// <summary>
+    /// 起動時自動実行が必要とするノードタイプ ID を重複なく列挙する。
+    /// startupGraphId と startupNodeTypeId の優先順位は <see cref="RunStartupAutoExecution"/> と揃える。
+    /// </summary>
+    private static List<string> CollectStartupNodeTypeIds(NodeGraph? startupGraph)
+    {
+        var ids = new List<string>();
+
+        if (!string.IsNullOrWhiteSpace(NgolConfig.StartupGraphId))
+        {
+            if (startupGraph == null) return ids;
+            foreach (var node in startupGraph.Nodes)
+            {
+                if (string.IsNullOrWhiteSpace(node.NodeTypeId)) continue;
+                if (ids.Contains(node.NodeTypeId, StringComparer.Ordinal)) continue;
+                ids.Add(node.NodeTypeId);
+            }
+            return ids;
+        }
+
+        var nodeTypeId = NgolConfig.StartupNodeTypeId;
+        if (!string.IsNullOrWhiteSpace(nodeTypeId)) ids.Add(nodeTypeId.Trim());
+        return ids;
+    }
+
+    private void RunStartupAutoExecution(NodeGraph? preloadedStartupGraph)
     {
         try
         {
@@ -688,7 +889,7 @@ public sealed class NgolRuntime : IDisposable
                     return;
                 }
 
-                var graph = GraphPersistenceHelper.TryLoad(id, _graphSaveDir);
+                var graph = preloadedStartupGraph ?? GraphPersistenceHelper.TryLoad(id, _graphSaveDir);
                 if (graph == null)
                 {
                     _log.LogWarning($"[Startup] Graph not found: {id}");

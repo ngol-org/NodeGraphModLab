@@ -238,6 +238,90 @@ public class NgolConfigTests
         Assert.That(logger.Warnings, Has.Some.Contains("customNodeDirectories"));
     }
 
+    [Test]
+    public void Load_PriorityCompileNodeTypeIdsKeyOmitted_DefaultsEmpty()
+    {
+        WriteConfig("{ \"port\": 11156 }");
+        var logger = new RecordingLogger();
+
+        NgolConfig.Load(_tempDir, logger);
+
+        Assert.That(NgolConfig.PriorityCompileNodeTypeIds, Is.Empty);
+    }
+
+    [Test]
+    public void Load_PriorityCompileNodeTypeIds_ParsesInOrder()
+    {
+        WriteConfig("""
+            {
+              "port": 11156,
+              "priorityCompileNodeTypeIds": ["ns.b.second", "ns.a.first"]
+            }
+            """);
+        var logger = new RecordingLogger();
+
+        NgolConfig.Load(_tempDir, logger);
+
+        // 記載順そのものが優先コンパイル順になるため、ソートせず保持する
+        Assert.That(NgolConfig.PriorityCompileNodeTypeIds, Is.EqualTo(new[] { "ns.b.second", "ns.a.first" }));
+    }
+
+    [Test]
+    public void Load_PriorityCompileNodeTypeIds_TrimsWhitespace()
+    {
+        WriteConfig("""
+            {
+              "port": 11156,
+              "priorityCompileNodeTypeIds": ["  ns.a.first  "]
+            }
+            """);
+        var logger = new RecordingLogger();
+
+        NgolConfig.Load(_tempDir, logger);
+
+        Assert.That(NgolConfig.PriorityCompileNodeTypeIds, Is.EqualTo(new[] { "ns.a.first" }));
+    }
+
+    [Test]
+    public void Load_PriorityCompileNodeTypeIdsContainsEmptyEntry_SkipsAndWarns()
+    {
+        WriteConfig("""
+            {
+              "port": 11156,
+              "priorityCompileNodeTypeIds": ["ns.a.first", "", "   "]
+            }
+            """);
+        var logger = new RecordingLogger();
+
+        NgolConfig.Load(_tempDir, logger);
+
+        Assert.That(NgolConfig.PriorityCompileNodeTypeIds, Is.EqualTo(new[] { "ns.a.first" }));
+        Assert.That(logger.Warnings, Has.Some.Contains("priorityCompileNodeTypeIds"));
+    }
+
+    [Test]
+    public void Load_PriorityCompileNodeTypeIdsNotAnArray_IgnoredWithoutThrowing()
+    {
+        WriteConfig("{ \"port\": 11156, \"priorityCompileNodeTypeIds\": \"ns.a.first\" }");
+        var logger = new RecordingLogger();
+
+        NgolConfig.Load(_tempDir, logger);
+
+        Assert.That(NgolConfig.PriorityCompileNodeTypeIds, Is.Empty);
+        Assert.That(NgolConfig.Port, Is.EqualTo(11156));
+    }
+
+    [Test]
+    public void Load_NoFile_DefaultPriorityCompileNodeTypeIdsNotWritten()
+    {
+        var logger = new RecordingLogger();
+
+        NgolConfig.Load(_tempDir, logger);
+
+        var written = File.ReadAllText(Path.Combine(_tempDir, "ngol-config.json"));
+        Assert.That(written, Does.Not.Contain("priorityCompileNodeTypeIds"));
+    }
+
     private void WriteConfig(string json)
     {
         File.WriteAllText(Path.Combine(_tempDir, "ngol-config.json"), json, System.Text.Encoding.UTF8);

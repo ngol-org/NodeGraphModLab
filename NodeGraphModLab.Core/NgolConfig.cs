@@ -14,6 +14,7 @@ internal class NgolConfigData
     public string StartupNodeTypeId { get; set; } = "";
     public string? StartupNodeInputsJson { get; set; }
     public List<string> CustomNodeDirectories { get; set; } = new();
+    public List<string> PriorityCompileNodeTypeIds { get; set; } = new();
     public bool RequireAuthToken { get; set; } = false;
 }
 
@@ -30,6 +31,14 @@ public static class NgolConfig
     public static string StartupNodeTypeId => _data.StartupNodeTypeId;
     public static string? StartupNodeInputsJson => _data.StartupNodeInputsJson;
     public static IReadOnlyList<string> CustomNodeDirectories => _data.CustomNodeDirectories;
+
+    /// <summary>
+    /// 起動時に最優先でコンパイルするノードタイプ ID（記載順にコンパイルされる）。
+    /// 起動時自動実行の対象グラフ・ノードは自動的に優先されるため、ここへの記載は不要。
+    /// 登録順そのものに意味があるノードを明示指定するための設定。
+    /// </summary>
+    public static IReadOnlyList<string> PriorityCompileNodeTypeIds => _data.PriorityCompileNodeTypeIds;
+
     public static bool RequireAuthToken => _data.RequireAuthToken;
 
     public static void Load(string pluginDir, INgolLogger log)
@@ -111,12 +120,27 @@ public static class NgolConfig
                     }
                 }
 
+                if (root.TryGetProperty("priorityCompileNodeTypeIds", out var priorityElement) && priorityElement.ValueKind == JsonValueKind.Array)
+                {
+                    foreach (var item in priorityElement.EnumerateArray())
+                    {
+                        var nodeTypeId = (item.ValueKind == JsonValueKind.String ? item.GetString() : null) ?? "";
+                        nodeTypeId = nodeTypeId.Trim();
+                        if (nodeTypeId.Length == 0)
+                        {
+                            log.LogWarning("[Config] priorityCompileNodeTypeIds contains an empty entry, skipping");
+                            continue;
+                        }
+                        _data.PriorityCompileNodeTypeIds.Add(nodeTypeId);
+                    }
+                }
+
                 if (root.TryGetProperty("requireAuthToken", out var requireAuthTokenElement))
                 {
                     _data.RequireAuthToken = requireAuthTokenElement.GetBoolean();
                 }
 
-                log.LogInfo($"[Config] Loaded: port={_data.Port} forceDirectMode={_data.ForceDirectMode} directModeIntervalMs={_data.DirectModeIntervalMs} customNodeDirectories={_data.CustomNodeDirectories.Count} requireAuthToken={_data.RequireAuthToken}");
+                log.LogInfo($"[Config] Loaded: port={_data.Port} forceDirectMode={_data.ForceDirectMode} directModeIntervalMs={_data.DirectModeIntervalMs} customNodeDirectories={_data.CustomNodeDirectories.Count} priorityCompileNodeTypeIds={_data.PriorityCompileNodeTypeIds.Count} requireAuthToken={_data.RequireAuthToken}");
             }
         }
         catch (Exception ex)
