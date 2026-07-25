@@ -51,7 +51,7 @@ public sealed class ConsoleFileNgolLogger : INgolLogger
 
     private void Emit(string level, string message)
     {
-        var line = $"[{DateTime.Now:HH:mm:ss}] [{level}] {message}";
+        var line = $"[{DateTime.Now:HH:mm:ss.fff}] [{level}] {message}";
 
         lock (_fileLock)
         {
