@@ -52,6 +52,11 @@ interface NodeTypeInfo {
 
 let nodeCache: NodeTypeInfo[] | null = null;
 
+// ホットリロード等でノード一覧が変わったらキャッシュを捨てる（再取得は次の参照時）
+client.onPush("node_list_updated", () => {
+  nodeCache = null;
+});
+
 async function ensureConnected(): Promise<void> {
   if (!client.isConnected()) {
     await client.connect();

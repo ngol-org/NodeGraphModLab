@@ -24,6 +24,7 @@ export class NgolClient {
   private ws: WebSocket | null = null;
   private pending = new Map<string, PendingReq>();
   private pushListeners: PendingPush[] = [];
+  private pushHooks = new Map<string, Array<(msg: Record<string, unknown>) => void>>();
   private execPending: {
     resolve: (value: ExecResult) => void;
     reject: (reason: unknown) => void;
@@ -108,6 +109,16 @@ export class NgolClient {
   }
 
   /**
+   * 指定タイプのプッシュメッセージを受けるたびに呼ばれるフックを登録する。
+   * waitForPush と違い待機者の有無に関わらず呼ばれ、メッセージは消費しない。
+   */
+  onPush(type: string, cb: (msg: Record<string, unknown>) => void): void {
+    const list = this.pushHooks.get(type);
+    if (list) list.push(cb);
+    else this.pushHooks.set(type, [cb]);
+  }
+
+  /**
    * 指定タイプのプッシュメッセージを一度だけ待機する。
    * node_list_updated / script_compile_error など requestId なしのブロードキャストに使用。
    * ファイル書き込み前にリスナーを登録することで競合を防ぐ。
@@ -181,6 +192,16 @@ export class NgolClient {
       clearTimeout(ep.timer);
       ep.resolve({ result: msg, logs: ep.logs, snapshots: ep.snapshots });
       return;
+    }
+
+    // 常設フックへのディスパッチ（メッセージは消費しない）
+    if (type) {
+      const hooks = this.pushHooks.get(type);
+      if (hooks) {
+        for (const cb of hooks) {
+          try { cb(msg); } catch { /* フックの失敗は無視 */ }
+        }
+      }
     }
 
     // プッシュリスナーへのディスパッチ（ブロードキャスト待機: node_list_updated / script_compile_error など）
