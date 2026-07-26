@@ -16,6 +16,7 @@ internal class NgolConfigData
     public List<string> CustomNodeDirectories { get; set; } = new();
     public List<string> PriorityCompileNodeTypeIds { get; set; } = new();
     public bool RequireAuthToken { get; set; } = false;
+    public bool LogTimestamps { get; set; } = false;
 }
 
 public static class NgolConfig
@@ -40,6 +41,13 @@ public static class NgolConfig
     public static IReadOnlyList<string> PriorityCompileNodeTypeIds => _data.PriorityCompileNodeTypeIds;
 
     public static bool RequireAuthToken => _data.RequireAuthToken;
+
+    /// <summary>
+    /// ログ1行の先頭に時刻（[HH:mm:ss.fff]）を付与するか。既定は false。
+    /// ホスト側のログ機構が時刻を出力しない環境で、起動時のタイミングを追いたい場合に有効化する。
+    /// 時刻を常に自前で付与するロガー実装ではこの設定は参照されない。
+    /// </summary>
+    public static bool LogTimestamps => _data.LogTimestamps;
 
     public static void Load(string pluginDir, INgolLogger log)
     {
@@ -140,7 +148,12 @@ public static class NgolConfig
                     _data.RequireAuthToken = requireAuthTokenElement.GetBoolean();
                 }
 
-                log.LogInfo($"[Config] Loaded: port={_data.Port} forceDirectMode={_data.ForceDirectMode} directModeIntervalMs={_data.DirectModeIntervalMs} customNodeDirectories={_data.CustomNodeDirectories.Count} priorityCompileNodeTypeIds={_data.PriorityCompileNodeTypeIds.Count} requireAuthToken={_data.RequireAuthToken}");
+                if (root.TryGetProperty("logTimestamps", out var logTimestampsElement))
+                {
+                    _data.LogTimestamps = logTimestampsElement.GetBoolean();
+                }
+
+                log.LogInfo($"[Config] Loaded: port={_data.Port} forceDirectMode={_data.ForceDirectMode} directModeIntervalMs={_data.DirectModeIntervalMs} customNodeDirectories={_data.CustomNodeDirectories.Count} priorityCompileNodeTypeIds={_data.PriorityCompileNodeTypeIds.Count} requireAuthToken={_data.RequireAuthToken} logTimestamps={_data.LogTimestamps}");
             }
         }
         catch (Exception ex)
@@ -153,7 +166,7 @@ public static class NgolConfig
     private static void WriteDefault(string path)
     {
         File.WriteAllText(path,
-            "{\n  \"port\": " + DefaultPort + ",\n  \"forceDirectMode\": false,\n  \"requireAuthToken\": false\n}\n",
+            "{\n  \"port\": " + DefaultPort + ",\n  \"forceDirectMode\": false,\n  \"requireAuthToken\": false,\n  \"logTimestamps\": false\n}\n",
             System.Text.Encoding.UTF8);
     }
 }

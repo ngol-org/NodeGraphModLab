@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using System.IO;
 using NUnit.Framework;
 using NodeGraphModLab;
 
@@ -196,5 +197,115 @@ public class NgolRuntimeTests
 
         Assert.That(order, Is.Empty);
         Assert.That(unresolved, Is.Empty);
+    }
+
+    // ---- FormatScriptPathForLog ----
+    //
+    // 重複ノードIDの警告が同名ファイルを区別できるよう、監視ディレクトリからの相対パスを出す。
+    // パス区切りは実行環境に依存しないよう、テスト側でも Path.DirectorySeparatorChar を使って組み立てる。
+
+    private static string P(params string[] parts) => string.Join(Path.DirectorySeparatorChar.ToString(), parts);
+
+    [Test]
+    public void FormatScriptPathForLog_DirectlyUnderRoot_ReturnsFileName()
+    {
+        var root = P("C:", "game", "cs");
+
+        var actual = NgolRuntime.FormatScriptPathForLog(P(root, "DisasmNode.cs"), new[] { root });
+
+        Assert.That(actual, Is.EqualTo("DisasmNode.cs"));
+    }
+
+    [Test]
+    public void FormatScriptPathForLog_InSubDirectory_ReturnsSlashSeparatedRelativePath()
+    {
+        var root = P("C:", "game", "cs");
+
+        var actual = NgolRuntime.FormatScriptPathForLog(P(root, "Disasm", "DisasmNode.cs"), new[] { root });
+
+        Assert.That(actual, Is.EqualTo("Disasm/DisasmNode.cs"));
+    }
+
+    [Test]
+    public void FormatScriptPathForLog_NestedSubDirectory_ReturnsSlashSeparatedRelativePath()
+    {
+        var root = P("C:", "game", "cs");
+
+        var actual = NgolRuntime.FormatScriptPathForLog(P(root, "Group", "Sub", "A.cs"), new[] { root });
+
+        Assert.That(actual, Is.EqualTo("Group/Sub/A.cs"));
+    }
+
+    [Test]
+    public void FormatScriptPathForLog_RootWithTrailingSeparator_StillRelativizes()
+    {
+        var root = P("C:", "game", "cs");
+
+        var actual = NgolRuntime.FormatScriptPathForLog(
+            P(root, "A.cs"), new[] { root + Path.DirectorySeparatorChar });
+
+        Assert.That(actual, Is.EqualTo("A.cs"));
+    }
+
+    [Test]
+    public void FormatScriptPathForLog_SiblingDirectoryWithSamePrefix_ReturnsFullPath()
+    {
+        // "<root>2" は "<root>" で前方一致するが別ディレクトリ。区切り文字境界で弾く必要がある。
+        var root = P("C:", "game", "cs");
+        var full = P("C:", "game", "cs2", "A.cs");
+
+        var actual = NgolRuntime.FormatScriptPathForLog(full, new[] { root });
+
+        Assert.That(actual, Is.EqualTo(full));
+    }
+
+    [Test]
+    public void FormatScriptPathForLog_OutsideRoot_ReturnsFullPath()
+    {
+        var root = P("C:", "game", "cs");
+        var full = P("D:", "other", "A.cs");
+
+        var actual = NgolRuntime.FormatScriptPathForLog(full, new[] { root });
+
+        Assert.That(actual, Is.EqualTo(full));
+    }
+
+    [Test]
+    public void FormatScriptPathForLog_SecondaryScanDir_ReturnsFullPath()
+    {
+        // 相対化はプライマリ（先頭）のみ。追加ディレクトリ配下はフルパスのまま。
+        var primary = P("C:", "game", "cs");
+        var extra = P("D:", "extra");
+        var full = P(extra, "A.cs");
+
+        var actual = NgolRuntime.FormatScriptPathForLog(full, new[] { primary, extra });
+
+        Assert.That(actual, Is.EqualTo(full));
+    }
+
+    [Test]
+    public void FormatScriptPathForLog_NoScanDirs_ReturnsFullPath()
+    {
+        var full = P("C:", "game", "cs", "A.cs");
+
+        Assert.That(NgolRuntime.FormatScriptPathForLog(full, null), Is.EqualTo(full));
+        Assert.That(NgolRuntime.FormatScriptPathForLog(full, new string[0]), Is.EqualTo(full));
+    }
+
+    [Test]
+    public void FormatScriptPathForLog_PathEqualsRoot_ReturnsFullPath()
+    {
+        var root = P("C:", "game", "cs");
+
+        Assert.That(NgolRuntime.FormatScriptPathForLog(root, new[] { root }), Is.EqualTo(root));
+    }
+
+    [Test]
+    public void FormatScriptPathForLog_NullOrEmptyPath_ReturnedAsIs()
+    {
+        var root = P("C:", "game", "cs");
+
+        Assert.That(NgolRuntime.FormatScriptPathForLog("", new[] { root }), Is.EqualTo(""));
+        Assert.That(NgolRuntime.FormatScriptPathForLog(null!, new[] { root }), Is.Null);
     }
 }

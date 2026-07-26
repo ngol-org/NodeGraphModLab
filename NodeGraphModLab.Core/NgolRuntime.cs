@@ -47,6 +47,10 @@ public sealed class NgolRuntime : IDisposable
     // 共有ファイルパス → それを参照している依存ノード.csパス一覧（逆引き）
     private readonly ConcurrentDictionary<string, ConcurrentDictionary<string, byte>> _sharedFileDependents = new(StringComparer.OrdinalIgnoreCase);
 
+    // 監視対象ディレクトリ（プライマリ + 追加ディレクトリ）。ログのパス表示をディレクトリ相対にするために保持する。
+    // Initialize() 内で一度だけ代入し、以降は読み取り専用。
+    private IReadOnlyList<string> _scanDirs = Array.Empty<string>();
+
     public IKVStore? Store => _store;
 
     /// <summary>ホスト初期化時、GCワークアラウンドの要否を判定した後に呼ぶ。</summary>
@@ -92,6 +96,9 @@ public sealed class NgolRuntime : IDisposable
         var extraNodeDirs = ResolveCustomNodeDirectories(NgolConfig.CustomNodeDirectories, nodesDir, _log);
         var scanDirs = new List<string> { nodesDir };
         scanDirs.AddRange(extraNodeDirs);
+        // ログのパス表示に使う。読み手（Task.Run のスキャン処理・ファイル監視のコールバック）は
+        // いずれもこの代入より後に起動されるため、代入が見えることは保証される。
+        _scanDirs = scanDirs;
 
         RoslynCompiler.LoadPersistedNodes(dynamicNodesDir, _nodeRegistry, _log);
 
@@ -613,7 +620,7 @@ public sealed class NgolRuntime : IDisposable
                 if (_scriptNodeId.TryGetValue(nid, out var existingFile) && existingFile != filePath)
                 {
                     var verb = isHotReload ? "Hot-reloaded" : "Registered";
-                    var warn = $"[Scripts] Duplicate node ID detected: '{nid}' — also defined in '{Path.GetFileName(existingFile)}'. {verb} '{Path.GetFileName(filePath)}' will override.";
+                    var warn = $"[Scripts] Duplicate node ID detected: '{nid}' — also defined in '{FormatScriptPathForLog(existingFile, _scanDirs)}'. {verb} '{FormatScriptPathForLog(filePath, _scanDirs)}' will override.";
                     _log.LogWarning(warn);
                     _graphServer?.BroadcastWarningLog(warn);
                 }
@@ -633,6 +640,33 @@ public sealed class NgolRuntime : IDisposable
     }
 
     // ---- .srclist インデックス ----
+
+    /// <summary>
+    /// ログ表示用にスクリプトのパスを整形する（純粋関数）。
+    /// 先頭の監視ディレクトリ配下なら、そこからの相対パスを '/' 区切りで返す。
+    /// それ以外（追加の監視ディレクトリ配下・監視対象外）はフルパスを返す。
+    /// 相対化を先頭ディレクトリのみに限るのは、別ディレクトリ間で相対パスが衝突して
+    /// どちらのファイルか取り違えるのを避けるため。
+    /// </summary>
+    internal static string FormatScriptPathForLog(string fullPath, IReadOnlyList<string>? scanDirs)
+    {
+        if (string.IsNullOrEmpty(fullPath)) return fullPath;
+        if (scanDirs == null || scanDirs.Count == 0) return fullPath;
+
+        var root = scanDirs[0];
+        if (string.IsNullOrEmpty(root)) return fullPath;
+        root = root.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+
+        // 単純な前方一致だと "<root>2\A.cs" のような別ディレクトリまで相対化してしまうため、
+        // root の直後が区切り文字であることまで確認する。
+        if (fullPath.Length <= root.Length + 1) return fullPath;
+        if (!fullPath.StartsWith(root, StringComparison.OrdinalIgnoreCase)) return fullPath;
+
+        var sep = fullPath[root.Length];
+        if (sep != Path.DirectorySeparatorChar && sep != Path.AltDirectorySeparatorChar) return fullPath;
+
+        return fullPath.Substring(root.Length + 1).Replace('\\', '/');
+    }
 
     private static string GetNodeCsPathForSrclist(string srclistPath) => Path.ChangeExtension(srclistPath, ".cs");
 
@@ -754,7 +788,7 @@ public sealed class NgolRuntime : IDisposable
                         {
                             if (result.NodeTypeIdToPath.TryGetValue(id, out var existing))
                             {
-                                _log.LogWarning($"[Scripts] Node type ID '{id}' is declared in both '{Path.GetFileName(existing)}' and '{Path.GetFileName(file)}'; priority compile will use the former.");
+                                _log.LogWarning($"[Scripts] Node type ID '{id}' is declared in both '{FormatScriptPathForLog(existing, _scanDirs)}' and '{FormatScriptPathForLog(file, _scanDirs)}'; priority compile will use the former.");
                                 continue;
                             }
                             result.NodeTypeIdToPath[id] = file;

@@ -322,6 +322,51 @@ public class NgolConfigTests
         Assert.That(written, Does.Not.Contain("priorityCompileNodeTypeIds"));
     }
 
+    // ---- logTimestamps ----
+
+    [Test]
+    public void Load_LogTimestampsNotSpecified_DefaultsToFalse()
+    {
+        WriteConfig("{ \"port\": 11156 }");
+
+        NgolConfig.Load(_tempDir, new RecordingLogger());
+
+        Assert.That(NgolConfig.LogTimestamps, Is.False);
+    }
+
+    [Test]
+    public void Load_LogTimestampsTrue_IsRead()
+    {
+        WriteConfig("{ \"port\": 11156, \"logTimestamps\": true }");
+
+        NgolConfig.Load(_tempDir, new RecordingLogger());
+
+        Assert.That(NgolConfig.LogTimestamps, Is.True);
+    }
+
+    [Test]
+    public void Load_LogTimestampsFalse_IsRead()
+    {
+        WriteConfig("{ \"port\": 11156, \"logTimestamps\": false }");
+
+        NgolConfig.Load(_tempDir, new RecordingLogger());
+
+        Assert.That(NgolConfig.LogTimestamps, Is.False);
+    }
+
+    [Test]
+    public void Load_NoConfigFile_WritesDefaultContainingLogTimestamps()
+    {
+        var path = Path.Combine(_tempDir, "ngol-config.json");
+        if (File.Exists(path)) File.Delete(path);
+
+        NgolConfig.Load(_tempDir, new RecordingLogger());
+
+        var written = File.ReadAllText(path);
+        Assert.That(written, Does.Contain("\"logTimestamps\": false"));
+        Assert.That(NgolConfig.LogTimestamps, Is.False);
+    }
+
     private void WriteConfig(string json)
     {
         File.WriteAllText(Path.Combine(_tempDir, "ngol-config.json"), json, System.Text.Encoding.UTF8);
