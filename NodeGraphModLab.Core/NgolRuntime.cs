@@ -986,18 +986,15 @@ public sealed class NgolRuntime : IDisposable
 
     private IKVStore CreateKVStore(string pluginDir)
     {
-        var dbPath = Path.Combine(pluginDir, "kvstore.db");
-        IKVStoreBackend backend;
-        try
-        {
-            backend = new LiteDBBackend(dbPath);
-            _log.LogInfo($"[KVStore] LiteDB initialized: {dbPath}");
-        }
-        catch (Exception ex)
-        {
-            _log.LogWarning($"[KVStore] LiteDB init failed ({ex.Message}), falling back to JSON");
-            backend = new JsonFileBackend(Path.ChangeExtension(dbPath, ".json"));
-        }
+        // 実装の選択と失敗時の退避はファクトリ側に閉じている。
+        // ここで各実装の型に直接触れないことが重要で、触れるとその実装が依存する
+        // アセンブリが、選ばれていなくてもこのメソッドの JIT 時に解決されてしまう。
+        var backend = KVStoreBackendFactory.Create(NgolConfig.KvStoreBackend, pluginDir, _log, out var resolvedName);
+
+        // 保存先を切り替えた直後の一度だけ、以前の保存先から中身を引き継ぐ。
+        // KVStore がメモリへ読み込む前に済ませる必要があるため、ここで行う。
+        KVStoreBackendFactory.MigrateIfRequested(NgolConfig.KvStoreMigrateFrom, resolvedName, backend, pluginDir, _log);
+
         return new KVStore(backend);
     }
 

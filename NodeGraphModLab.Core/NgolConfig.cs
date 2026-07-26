@@ -17,6 +17,8 @@ internal class NgolConfigData
     public List<string> PriorityCompileNodeTypeIds { get; set; } = new();
     public bool RequireAuthToken { get; set; } = false;
     public bool LogTimestamps { get; set; } = false;
+    public string KvStoreBackend { get; set; } = "auto";
+    public string KvStoreMigrateFrom { get; set; } = "";
 }
 
 public static class NgolConfig
@@ -48,6 +50,19 @@ public static class NgolConfig
     /// 時刻を常に自前で付与するロガー実装ではこの設定は参照されない。
     /// </summary>
     public static bool LogTimestamps => _data.LogTimestamps;
+
+    /// <summary>
+    /// キー・値ストアの永続化に使う実装の名前。既定は "auto"。
+    /// 指定できる値は Core.KVStore.KVStoreBackendFactory.KnownNames を参照。
+    /// 既定で足りる場合は設定ファイルに書く必要はない。
+    /// </summary>
+    public static string KvStoreBackend => _data.KvStoreBackend;
+
+    /// <summary>
+    /// 保存先を切り替えたときに、以前の保存先から中身を引き継ぐための一度きりの指定。
+    /// 空文字（既定）なら何もしない。引き継ぎ済みかどうかは保存先ディレクトリの記録ファイルで判定する。
+    /// </summary>
+    public static string KvStoreMigrateFrom => _data.KvStoreMigrateFrom;
 
     public static void Load(string pluginDir, INgolLogger log)
     {
@@ -153,7 +168,27 @@ public static class NgolConfig
                     _data.LogTimestamps = logTimestampsElement.GetBoolean();
                 }
 
-                log.LogInfo($"[Config] Loaded: port={_data.Port} forceDirectMode={_data.ForceDirectMode} directModeIntervalMs={_data.DirectModeIntervalMs} customNodeDirectories={_data.CustomNodeDirectories.Count} priorityCompileNodeTypeIds={_data.PriorityCompileNodeTypeIds.Count} requireAuthToken={_data.RequireAuthToken} logTimestamps={_data.LogTimestamps}");
+                if (root.TryGetProperty("kvStoreBackend", out var kvStoreBackendElement)
+                    && kvStoreBackendElement.ValueKind == JsonValueKind.String)
+                {
+                    var backendName = kvStoreBackendElement.GetString();
+                    if (!string.IsNullOrWhiteSpace(backendName))
+                    {
+                        _data.KvStoreBackend = backendName!.Trim().ToLowerInvariant();
+                    }
+                }
+
+                if (root.TryGetProperty("kvStoreMigrateFrom", out var kvStoreMigrateFromElement)
+                    && kvStoreMigrateFromElement.ValueKind == JsonValueKind.String)
+                {
+                    var migrateFrom = kvStoreMigrateFromElement.GetString();
+                    if (!string.IsNullOrWhiteSpace(migrateFrom))
+                    {
+                        _data.KvStoreMigrateFrom = migrateFrom!.Trim().ToLowerInvariant();
+                    }
+                }
+
+                log.LogInfo($"[Config] Loaded: port={_data.Port} forceDirectMode={_data.ForceDirectMode} directModeIntervalMs={_data.DirectModeIntervalMs} customNodeDirectories={_data.CustomNodeDirectories.Count} priorityCompileNodeTypeIds={_data.PriorityCompileNodeTypeIds.Count} requireAuthToken={_data.RequireAuthToken} logTimestamps={_data.LogTimestamps} kvStoreBackend={_data.KvStoreBackend} kvStoreMigrateFrom={(_data.KvStoreMigrateFrom.Length == 0 ? "(none)" : _data.KvStoreMigrateFrom)}");
             }
         }
         catch (Exception ex)

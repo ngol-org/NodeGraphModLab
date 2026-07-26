@@ -367,6 +367,51 @@ public class NgolConfigTests
         Assert.That(NgolConfig.LogTimestamps, Is.False);
     }
 
+    // ---- kvStoreBackend ----
+
+    [Test]
+    public void Load_KvStoreBackendNotSpecified_DefaultsToAuto()
+    {
+        WriteConfig("{ \"port\": 11156 }");
+
+        NgolConfig.Load(_tempDir, new RecordingLogger());
+
+        Assert.That(NgolConfig.KvStoreBackend, Is.EqualTo("auto"));
+    }
+
+    [Test]
+    public void Load_KvStoreBackendSpecified_IsReadAndNormalized()
+    {
+        WriteConfig("{ \"port\": 11156, \"kvStoreBackend\": \"  JSONL  \" }");
+
+        NgolConfig.Load(_tempDir, new RecordingLogger());
+
+        Assert.That(NgolConfig.KvStoreBackend, Is.EqualTo("jsonl"));
+    }
+
+    [Test]
+    public void Load_KvStoreBackendEmptyString_KeepsDefault()
+    {
+        WriteConfig("{ \"port\": 11156, \"kvStoreBackend\": \"\" }");
+
+        NgolConfig.Load(_tempDir, new RecordingLogger());
+
+        Assert.That(NgolConfig.KvStoreBackend, Is.EqualTo("auto"));
+    }
+
+    [Test]
+    public void Load_NoConfigFile_DefaultDoesNotContainKvStoreBackend()
+    {
+        // 依存衝突時の回避策として用意するキーであり、通常構成の設定ファイルには現れない
+        var path = Path.Combine(_tempDir, "ngol-config.json");
+        if (File.Exists(path)) File.Delete(path);
+
+        NgolConfig.Load(_tempDir, new RecordingLogger());
+
+        Assert.That(File.ReadAllText(path), Does.Not.Contain("kvStoreBackend"));
+        Assert.That(NgolConfig.KvStoreBackend, Is.EqualTo("auto"));
+    }
+
     private void WriteConfig(string json)
     {
         File.WriteAllText(Path.Combine(_tempDir, "ngol-config.json"), json, System.Text.Encoding.UTF8);
