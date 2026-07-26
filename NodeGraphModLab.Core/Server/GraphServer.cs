@@ -296,6 +296,16 @@ public sealed class GraphServer : IDisposable
                     // CanSet はリセットしない（LivePush でも常に PIN チェックが働くようにする）
                 }
 
+                // 起動時自動実行（グラフ経路）は WS 応答/ブロードキャストの宛先が実質存在しないため、
+                // RunStartupNode と同じ形式でホストログへ成否を出力する
+                if (session is StartupNullSession)
+                {
+                    if (result.Success)
+                        _log.LogInfo($"[Startup] Graph '{graph.Id}' execution completed in {result.Duration.TotalMilliseconds:F0}ms");
+                    else
+                        _log.LogError($"[Startup] Graph '{graph.Id}' execution failed: {result.ErrorMessage}");
+                }
+
                 // Snapshot 保存通知を Push
                 foreach (var (savedNodeId, portName, valueType, valueString) in savedSnapshots)
                 {
@@ -320,6 +330,20 @@ public sealed class GraphServer : IDisposable
                         TimestampMs = entry.Timestamp.ToUnixTimeMilliseconds()
                     };
                     await BroadcastAsync(JsonSerializer.Serialize(push, ServerJsonContext.Default.ExecutionLogPush));
+
+                    // 起動時自動実行（グラフ経路）はブロードキャスト先が実質存在しないため、
+                    // RunStartupNode と同じ形式でホストログへも転送する（未登録ノードタイプの [SKIP] 等を含む）
+                    if (session is StartupNullSession)
+                    {
+                        var prefix = $"[Startup] [{entry.NodeInstanceId}] {entry.Message}";
+                        switch (entry.Level)
+                        {
+                            case LogLevel.Error: _log.LogError(prefix); break;
+                            case LogLevel.Warning: _log.LogWarning(prefix); break;
+                            case LogLevel.Debug: _log.LogDebug(prefix); break;
+                            default: _log.LogInfo(prefix); break;
+                        }
+                    }
                 }
 
                 var response = new ExecutionResultResponse
