@@ -1,7 +1,7 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
   <!--
-    標準的なホスト（NgolCoreHostWin 等）向けの INgolLogger 実装（コンソール＋ファイル出力）。
+    標準的なホストアプリケーション向けの INgolLogger 実装（コンソール＋ファイル出力）。
     Core とは独立した再利用可能なプロジェクトとして提供する。
     NodeGraphModLab.Core は本プロジェクトを参照しない（一方向の依存）。
   -->
@@ -13,6 +13,8 @@
     <LangVersion>latest</LangVersion>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
+    <Deterministic>true</Deterministic>
+    <PathMap>$(MSBuildThisFileDirectory)=/_/</PathMap>
   </PropertyGroup>
 
   <ItemGroup>

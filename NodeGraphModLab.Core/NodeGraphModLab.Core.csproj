@@ -12,6 +12,8 @@
     <IncludeSourceRevisionInInformationalVersion>false</IncludeSourceRevisionInInformationalVersion>
     <CopyLocalLockFileAssemblies>true</CopyLocalLockFileAssemblies>
     <!-- 特定のホストフレームワークへの参照なし -->
+    <Deterministic>true</Deterministic>
+    <PathMap>$(MSBuildThisFileDirectory)=/_/</PathMap>
   </PropertyGroup>
 
   <ItemGroup>

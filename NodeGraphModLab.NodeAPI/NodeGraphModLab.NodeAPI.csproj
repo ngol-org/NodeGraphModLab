@@ -10,6 +10,8 @@
     <Version>0.6.1</Version>
     <Description>Node Graph Mod Lab NodeAPI - Node interface definitions for custom node development</Description>
     <IncludeSourceRevisionInInformationalVersion>false</IncludeSourceRevisionInInformationalVersion>
+    <Deterministic>true</Deterministic>
+    <PathMap>$(MSBuildThisFileDirectory)=/_/</PathMap>
   </PropertyGroup>
 
   <ItemGroup>

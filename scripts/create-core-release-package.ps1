@@ -58,7 +58,7 @@ Write-Host "  OutputDir : $OutputDir" -ForegroundColor DarkGray
 
 # ===== Step 1: WebUI ビルド =====
 if (-not $SkipBuild) {
-    Write-Host "`n[1/4] WebUI ビルド中..." -ForegroundColor Yellow
+    Write-Host "`n[1/5] WebUI ビルド中..." -ForegroundColor Yellow
     Push-Location (Join-Path $Source "WebUI")
     try {
         if (-not (Test-Path "node_modules")) {
@@ -70,7 +70,7 @@ if (-not $SkipBuild) {
         Write-Host "  OK: WebUI ビルド成功" -ForegroundColor Green
     } finally { Pop-Location }
 } else {
-    Write-Host "[1/4] WebUI ビルドをスキップ" -ForegroundColor Gray
+    Write-Host "[1/5] WebUI ビルドをスキップ" -ForegroundColor Gray
 }
 
 # ===== Step 2: .NET ビルド（Release）=====
@@ -78,18 +78,18 @@ if (-not $SkipBuild) {
 # 一括ビルドする。HostLogging・サンプル群はCoreへProjectReferenceで参照しているため、MSBuildが依存順序を
 # 保証し、1回の実行で成功する（旧: HintPath参照だったため個別ループでビルド順を手動制御していた）。
 if (-not $SkipBuild) {
-    Write-Host "`n[2/4] .NET ビルド (Release)..." -ForegroundColor Yellow
+    Write-Host "`n[2/5] .NET ビルド (Release)..." -ForegroundColor Yellow
     $slnPath = Join-Path $Source "NodeGraphModLab.Core.sln"
     dotnet build $slnPath --configuration Release 2>&1
     if ($LASTEXITCODE -ne 0) { throw ".NET ビルド失敗: $slnPath" }
     Write-Host "  OK: .NET ビルド成功" -ForegroundColor Green
 } else {
-    Write-Host "[2/4] .NET ビルドをスキップ" -ForegroundColor Gray
+    Write-Host "[2/5] .NET ビルドをスキップ" -ForegroundColor Gray
 }
 
 # ===== Step 3: MCP バンドルビルド =====
 if (-not $SkipBuild) {
-    Write-Host "`n[3/4] MCP バンドルビルド..." -ForegroundColor Yellow
+    Write-Host "`n[3/5] MCP バンドルビルド..." -ForegroundColor Yellow
     Push-Location (Join-Path $Source "mcp")
     try {
         if (-not (Test-Path "node_modules")) {
@@ -101,11 +101,11 @@ if (-not $SkipBuild) {
         Write-Host "  OK: MCP バンドルビルド成功" -ForegroundColor Green
     } finally { Pop-Location }
 } else {
-    Write-Host "[3/4] MCP バンドルビルドをスキップ" -ForegroundColor Gray
+    Write-Host "[3/5] MCP バンドルビルドをスキップ" -ForegroundColor Gray
 }
 
 # ===== Step 4: ステージング & zip 生成 =====
-Write-Host "`n[4/4] パッケージ生成..." -ForegroundColor Yellow
+Write-Host "`n[4/5] パッケージ生成..." -ForegroundColor Yellow
 
 $stagingRoot = Join-Path $OutputDir "staging"
 $ngolStaging = Join-Path $stagingRoot "NGOL"
@@ -186,6 +186,59 @@ foreach ($doc in @("README.md", "CUSTOM_NODE_GUIDE.md", "LICENSE", "THIRD_PARTY_
         Write-Host "    Copied: $doc" -ForegroundColor DarkCyan
     } else { Write-Warning "Not found (Phase 2 対応待ちの可能性あり): $src" }
 }
+
+# ===== Step 5: パッケージ内容の確認（zip 生成前）=====
+# 配布物として妥当な状態かをここで確認し、通らなければ zip にしない。
+#   - 再配布アセンブリが環境非依存にビルドされていること（csproj の PathMap 設定の効果確認）
+#   - 配布対象外のファイル（.pdb / .log / .db / .map 等）が含まれていないこと
+#   - 追加の内容チェックは、その定義を持つツリーでビルドした場合のみ実行する
+Write-Host "`n[5/5] パッケージ内容の確認..." -ForegroundColor Yellow
+$verifyFailed = $false
+
+$ownAssemblyPattern = 'NodeGraphModLab.*'
+$absPathRegex = '[A-Za-z]:\\[A-Za-z0-9_\.\- ]{1,60}\\[A-Za-z0-9_\.\- ]{1,60}[A-Za-z0-9_\.\-\\ ]{0,140}'
+foreach ($bin in (Get-ChildItem $ngolStaging -Recurse -File | Where-Object { $_.Name -like $ownAssemblyPattern -and $_.Extension -in @('.dll', '.exe') })) {
+    $text = [System.Text.Encoding]::ASCII.GetString([System.IO.File]::ReadAllBytes($bin.FullName))
+    $embeddedPaths = [regex]::Matches($text, $absPathRegex) | ForEach-Object { $_.Value } | Sort-Object -Unique
+    foreach ($m in $embeddedPaths) {
+        $verifyFailed = $true
+        Write-Host "  NG: 環境依存のパスが残っている: $($bin.Name): $m" -ForegroundColor Red
+    }
+}
+
+$strayFiles = Get-ChildItem $ngolStaging -Recurse -File -Force | Where-Object {
+    $_.Extension -in @('.pdb', '.log', '.db', '.map', '.bak', '.user') -or $_.Name -like '.env*' -or $_.Name -like '*token*'
+}
+foreach ($f in $strayFiles) {
+    $verifyFailed = $true
+    Write-Host "  NG: 配布対象外のファイルが含まれている: $($f.FullName.Substring($ngolStaging.Length).TrimStart('\'))" -ForegroundColor Red
+}
+
+$sharedLib = Join-Path $PSScriptRoot "lib\PublicCoreShared.ps1"
+if (Test-Path $sharedLib) {
+    . $sharedLib
+    $wordViolations = Test-PathForbidden -Path $ngolStaging
+    foreach ($v in $wordViolations) {
+        $verifyFailed = $true
+        Write-Host "  NG: 記載チェック: $($v.RelPath):$($v.Line) [$($v.Pattern)] $($v.Excerpt)" -ForegroundColor Red
+    }
+    $imageResults = Test-ImageForbiddenText -Path $ngolStaging
+    foreach ($r in $imageResults) {
+        if ($r.Kind -eq 'Finding') {
+            $verifyFailed = $true
+            Write-Host "  NG: 画像の記載チェック: $($r.RelPath) [$($r.Pattern)] $($r.Excerpt)" -ForegroundColor Red
+        } else {
+            Write-Host "  WARN: 画像を判読できないため手動確認が必要: $($r.RelPath)" -ForegroundColor DarkYellow
+        }
+    }
+} else {
+    Write-Host "  NOTE: 追加チェックの定義が無いためスキップ" -ForegroundColor DarkYellow
+}
+
+if ($verifyFailed) {
+    throw "パッケージ内容の確認に失敗したため zip を生成しない。上記を修正してから再実行すること。"
+}
+Write-Host "  OK: 確認完了" -ForegroundColor Green
 
 # zip 生成
 $zipPath = Join-Path $OutputDir "NGOL-v$version.zip"
