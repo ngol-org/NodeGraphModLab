@@ -1069,7 +1069,8 @@ public sealed class NgolRuntime : IDisposable
         foreach (var watchers in _watchersByDir.Values)
             foreach (var w in watchers) { try { w.Dispose(); } catch { } }
         _watchersByDir.Clear();
-        try { _runner?.ClearAll(); } catch { }
+        // 以降 DrainUpdate が回らないため、OnStop はここで同期発火させる。
+        try { _runner?.ClearAllImmediate(); } catch { }
         try { _extensionHost?.UnloadAll(); } catch { }
         try { _graphServer?.Dispose(); } catch { }
         try { (_store as IDisposable)?.Dispose(); } catch { }

@@ -29,9 +29,10 @@ public class PersistentCallbacks
 
     /// <summary>
     /// 登録が停止されるタイミングで呼ばれる。
-    /// 呼び出しは必ずホストのメインスレッドから行われる（DrainUpdate または ClearAll 経由）。
+    /// 呼び出しは必ずホストのメインスレッドから行われる。
     /// WebSocket・スレッド・ホスト側オブジェクト等のリソース解放に使用する。
-    /// Cancel() 呼び出し後、次の DrainUpdate() で発火する（二重呼び出し防止済み）。
+    /// 停止要求の後、次の DrainUpdate() で発火する（二重呼び出し防止済み）。
+    /// ホスト終了時のみ DrainUpdate を待たずその場で発火する。
     /// </summary>
     public Action? OnStop { get; init; }
 }

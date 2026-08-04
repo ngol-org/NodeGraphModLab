@@ -85,6 +85,18 @@ public class PersistentNodeRunnerTests
     // ---- OnStop: ClearAll 経由 ----
 
     [Test]
+    public void OnStop_NotFiredSynchronously_OnClearAll()
+    {
+        var runner = new PersistentNodeRunner();
+        var stopCount = 0;
+        RegisterNode(runner, onStop: () => stopCount++);
+
+        runner.ClearAll();
+        Assert.That(stopCount, Is.EqualTo(0),
+            "ClearAll() は OnStop をその場で呼ばない（呼び出し元スレッドが不定のため）");
+    }
+
+    [Test]
     public void OnStop_CalledOnClearAll()
     {
         var runner = new PersistentNodeRunner();
@@ -92,7 +104,8 @@ public class PersistentNodeRunnerTests
         RegisterNode(runner, onStop: () => stopCount++);
 
         runner.ClearAll();
-        Assert.That(stopCount, Is.EqualTo(1), "ClearAll() で OnStop が呼ばれる");
+        runner.DrainUpdate();
+        Assert.That(stopCount, Is.EqualTo(1), "ClearAll() 後の DrainUpdate() で OnStop が呼ばれる");
     }
 
     [Test]
@@ -105,7 +118,33 @@ public class PersistentNodeRunnerTests
         RegisterNode(runner, nodeId: "node-3", onStop: () => stopCount++);
 
         runner.ClearAll();
-        Assert.That(stopCount, Is.EqualTo(3), "ClearAll() で全ノードの OnStop が呼ばれる");
+        runner.DrainUpdate();
+        Assert.That(stopCount, Is.EqualTo(3), "ClearAll() 後の DrainUpdate() で全ノードの OnStop が呼ばれる");
+    }
+
+    [Test]
+    public void ActiveNodes_EmptyImmediately_AfterClearAll()
+    {
+        var runner = new PersistentNodeRunner();
+        RegisterNode(runner, nodeId: "node-1");
+        RegisterNode(runner, nodeId: "node-2");
+
+        runner.ClearAll();
+        Assert.That(runner.GetActiveNodes(), Is.Empty,
+            "OnStop の発火を待たずに一覧は空になる（WebUI から見た応答は変わらない）");
+    }
+
+    [Test]
+    public void OnUpdate_NotCalled_AfterClearAll()
+    {
+        var runner = new PersistentNodeRunner();
+        var updateCount = 0;
+        RegisterNode(runner, onUpdate: () => updateCount++);
+
+        runner.ClearAll();
+        runner.DrainUpdate();
+        Assert.That(updateCount, Is.EqualTo(0),
+            "OnStop の発火待ちの間に OnUpdate が走らない");
     }
 
     [Test]
@@ -117,9 +156,37 @@ public class PersistentNodeRunnerTests
 
         reg.Cancel();
         runner.DrainUpdate(); // ← ここで FireStop()
-        runner.ClearAll();    // ← すでに除去済みなので呼ばれない
+        runner.ClearAll();
+        runner.DrainUpdate(); // ← すでに除去済みなので呼ばれない
 
         Assert.That(stopCount, Is.EqualTo(1), "DrainUpdate 後の ClearAll で二重呼び出ししない");
+    }
+
+    // ---- OnStop: ClearAllImmediate 経由（終了経路） ----
+
+    [Test]
+    public void ClearAllImmediate_FiresStopSynchronously()
+    {
+        var runner = new PersistentNodeRunner();
+        var stopCount = 0;
+        RegisterNode(runner, nodeId: "node-1", onStop: () => stopCount++);
+        RegisterNode(runner, nodeId: "node-2", onStop: () => stopCount++);
+
+        runner.ClearAllImmediate();
+        Assert.That(stopCount, Is.EqualTo(2),
+            "終了経路では DrainUpdate が回らないため、その場で OnStop を呼ぶ");
+    }
+
+    [Test]
+    public void ClearAllImmediate_DoesNotFireTwice_WhenDrainedAfterward()
+    {
+        var runner = new PersistentNodeRunner();
+        var stopCount = 0;
+        RegisterNode(runner, onStop: () => stopCount++);
+
+        runner.ClearAllImmediate();
+        runner.DrainUpdate();
+        Assert.That(stopCount, Is.EqualTo(1), "同期発火後に Drain しても二重呼び出ししない");
     }
 
     // ---- OnStart ----
@@ -265,6 +332,7 @@ public class PersistentNodeRunnerTests
         RegisterNode(runner, nodeId: "node-ok",    onStop: () => secondStopped = true);
 
         runner.ClearAll();
+        runner.DrainUpdate();
         Assert.That(secondStopped, Is.True, "例外ノードの次のノードの OnStop も呼ばれる");
     }
 

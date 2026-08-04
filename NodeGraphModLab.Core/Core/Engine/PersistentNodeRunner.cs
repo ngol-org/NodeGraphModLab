@@ -126,7 +126,27 @@ public sealed class PersistentNodeRunner
         OnChanged?.Invoke(GetActiveNodes());
     }
 
+    /// <summary>
+    /// 全登録を停止する。<see cref="PersistentCallbacks.OnStop"/> はここでは発火せず、
+    /// メインスレッドで回る <see cref="DrainUpdate"/> に委ねる（CancelByNodeId と同じ作法）。
+    /// 呼び出し元のスレッドは問わない。
+    /// </summary>
     public void ClearAll()
+    {
+        lock (_lock)
+        {
+            foreach (var r in _registrations) r.Cancel();
+            // RemoveAll はここでは行わない。DrainUpdate() が FireStop() → RemoveAll を処理する。
+        }
+        OnChanged?.Invoke(GetActiveNodes());
+    }
+
+    /// <summary>
+    /// 全登録を停止し、<see cref="PersistentCallbacks.OnStop"/> をその場で発火する。
+    /// 以降 <see cref="DrainUpdate"/> が回らない終了経路専用。
+    /// OnStop はホストのメインスレッドから呼ぶ契約なので、呼び出し元がそれを保証すること。
+    /// </summary>
+    public void ClearAllImmediate()
     {
         List<PersistentRegistration> snapshot;
         lock (_lock)
@@ -135,7 +155,6 @@ public sealed class PersistentNodeRunner
             foreach (var r in _registrations) r.Cancel();
             _registrations.Clear();
         }
-        // OnStop をロック外・呼び出し元スレッド（OnDestroy = メインスレッド）から呼ぶ
         foreach (var r in snapshot) r.FireStop();
         OnChanged?.Invoke(Array.Empty<NodeMeta>());
     }
