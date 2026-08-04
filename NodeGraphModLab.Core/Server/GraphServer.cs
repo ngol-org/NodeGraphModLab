@@ -49,6 +49,12 @@ public sealed class GraphServer : IDisposable
     private readonly object _browserSessionsLock = new();
     private bool _disposed;
 
+    /// <summary>
+    /// 1メッセージとして受け入れる最大バイト数。分割受信を無制限に連結すると、
+    /// 壊れたクライアントや過大な送信でメモリを食い尽くせるため上限を設ける。
+    /// </summary>
+    internal const int MaxIncomingMessageBytes = 8 * 1024 * 1024;
+
     // グラフ実行リクエストをメインスレッドキューに積む
     private static readonly ConcurrentQueue<PendingExecution> _pendingExecutions = new();
 
@@ -683,7 +689,17 @@ public sealed class GraphServer : IDisposable
         };
         await session.SendAsync(JsonSerializer.Serialize(persistentPush, ServerJsonContext.Default.PersistentNodeChangedPush));
 
+        // 1回の ReceiveAsync が1メッセージ分を返すとは限らない。受信側の内部バッファ長で
+        // 区切られ、続きがある場合は EndOfMessage=false で返る。全断片が揃うまでバイト列の
+        // まま溜め、揃ってから1度だけ UTF-8 デコードする。断片ごとにデコードすると、区切りが
+        // マルチバイト文字の途中に落ちたときにその文字が置換文字へ化ける。
+        //
+        // バッファ長は結果に影響しない（分割は受信側の内部バッファが決めるため）が、
+        // 自前 WebSocket 実装を使うホストでは1フレームがこの長さに収まるほど
+        // 受信回数が減るため、余裕を持たせておく。
         var buffer = new byte[64 * 1024];
+        using var pending = new MemoryStream();
+        var overLimit = false;
         while (session.WebSocket.State == WebSocketState.Open)
         {
             try
@@ -694,11 +710,40 @@ public sealed class GraphServer : IDisposable
                     await session.WebSocket.CloseAsync(WebSocketCloseStatus.NormalClosure, "", CancellationToken.None);
                     break;
                 }
-                if (result.MessageType == WebSocketMessageType.Text)
+                if (result.MessageType != WebSocketMessageType.Text)
+                    continue;
+
+                // 上限超過後は溜めずに読み捨て、メッセージの終端まで来たら破棄して次へ進む。
+                if (!overLimit)
                 {
-                    var json = Encoding.UTF8.GetString(buffer, 0, result.Count);
-                    await DispatchMessageAsync(session, json);
+                    if (pending.Length + result.Count > MaxIncomingMessageBytes)
+                    {
+                        overLimit = true;
+                        pending.SetLength(0);
+                        _log.LogWarning($"[GraphServer] 受信メッセージが上限 {MaxIncomingMessageBytes} バイトを超えたため破棄します");
+                    }
+                    else
+                    {
+                        pending.Write(buffer, 0, result.Count);
+                    }
                 }
+
+                if (!result.EndOfMessage)
+                    continue;
+
+                if (overLimit)
+                {
+                    overLimit = false;
+                    pending.Capacity = 0;   // 肥大した内部バッファを接続に抱えさせない
+                    await session.SendAsync(JsonSerializer.Serialize(
+                        new ErrorResponse { Message = $"Message too large (limit {MaxIncomingMessageBytes} bytes)" },
+                        ServerJsonContext.Default.ErrorResponse));
+                    continue;
+                }
+
+                var json = Encoding.UTF8.GetString(pending.GetBuffer(), 0, (int)pending.Length);
+                pending.SetLength(0);
+                await DispatchMessageAsync(session, json);
             }
             catch (WebSocketException ex) { _log.LogDebug($"[GraphServer] WS recv exception: {ex.Message}"); break; }
             catch (Exception ex)
@@ -715,11 +760,19 @@ public sealed class GraphServer : IDisposable
         }
     }
 
+    /// <summary>ログ1行に収める用に先頭だけ切り出す。改行は潰す。</summary>
+    private static string Head(string s, int max)
+    {
+        var head = s.Length <= max ? s : s.Substring(0, max) + "…";
+        return head.Replace("\r", " ").Replace("\n", " ");
+    }
+
     private async Task DispatchMessageAsync(ISession session, string json)
     {
         var (msgType, doc) = MessageParser.ParseType(json);
         if (msgType == null || doc == null)
         {
+            _log.LogWarning($"[GraphServer] 解釈できないメッセージを受信しました（{json.Length} 文字）: {Head(json, 120)}");
             await session.SendAsync(JsonSerializer.Serialize(
                 new ErrorResponse { Message = "Invalid message format" },
                 ServerJsonContext.Default.ErrorResponse));
@@ -731,9 +784,12 @@ public sealed class GraphServer : IDisposable
             if (_handlers.TryGetValue(msgType, out var handler))
                 await handler.HandleAsync(session, doc.RootElement);
             else
+            {
+                _log.LogWarning($"[GraphServer] 未知のメッセージ種別を受信しました: {msgType}");
                 await session.SendAsync(JsonSerializer.Serialize(
                     new ErrorResponse { Message = $"Unknown message type: {msgType}" },
                     ServerJsonContext.Default.ErrorResponse));
+            }
         }
         catch (Exception ex)
         {

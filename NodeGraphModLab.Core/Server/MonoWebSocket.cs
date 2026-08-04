@@ -21,6 +21,17 @@ internal sealed class TcpWebSocket : WebSocket
     private readonly SemaphoreSlim _sendLock = new(1, 1);
     private WebSocketState _state = WebSocketState.Open;
 
+    // 呼び出し側のバッファに入りきらなかった分を次の ReceiveAsync へ持ち越す。
+    private byte[]? _carry;
+    private int _carryOffset;
+    private bool _carryFinal;
+    private WebSocketMessageType _carryType;
+
+    // 断片化されたメッセージの先頭フレームの種別。継続フレーム（opcode 0x00）は
+    // 自身では種別を持たないため、先頭フレームの種別を引き継ぐ（RFC 6455 §5.4）。
+    private WebSocketMessageType _fragmentType = WebSocketMessageType.Text;
+    private bool _inFragmentedMessage;
+
     public TcpWebSocket(Stream stream, Socket socket)
     {
         _stream = stream;
@@ -68,16 +79,47 @@ internal sealed class TcpWebSocket : WebSocket
 
     public override async Task<WebSocketReceiveResult> ReceiveAsync(ArraySegment<byte> buffer, CancellationToken cancellationToken)
     {
-        var (msgType, payload, isClose) = await ReadFrameAsync(cancellationToken);
+        // 前回の呼び出しで渡しきれなかった分が残っていれば、それを先に返す。
+        if (_carry != null)
+            return TakeFromCarry(buffer);
+
+        var (msgType, payload, isClose, isFinal) = await ReadFrameAsync(cancellationToken);
         if (isClose)
         {
             _state = WebSocketState.CloseReceived;
             return new WebSocketReceiveResult(0, WebSocketMessageType.Close, true,
                 WebSocketCloseStatus.NormalClosure, string.Empty);
         }
-        int count = Math.Min(payload.Length, buffer.Count);
-        Buffer.BlockCopy(payload, 0, buffer.Array!, buffer.Offset, count);
-        return new WebSocketReceiveResult(count, msgType, true);
+
+        _carry = payload;
+        _carryOffset = 0;
+        _carryFinal = isFinal;
+        _carryType = msgType;
+        return TakeFromCarry(buffer);
+    }
+
+    /// <summary>
+    /// 保留中のペイロードから呼び出し側のバッファに入る分だけ写す。
+    /// 残りがある間は EndOfMessage=false を返し、呼び出し側に続きを取りに来させる
+    /// （従来は Math.Min で切って超過分を黙って捨てていた）。
+    /// </summary>
+    private WebSocketReceiveResult TakeFromCarry(ArraySegment<byte> buffer)
+    {
+        var payload = _carry!;
+        int remaining = payload.Length - _carryOffset;
+        int count = Math.Min(remaining, buffer.Count);
+        Buffer.BlockCopy(payload, _carryOffset, buffer.Array!, buffer.Offset, count);
+        _carryOffset += count;
+
+        bool drained = _carryOffset >= payload.Length;
+        var type = _carryType;
+        bool endOfMessage = drained && _carryFinal;
+        if (drained)
+        {
+            _carry = null;
+            _carryOffset = 0;
+        }
+        return new WebSocketReceiveResult(count, type, endOfMessage);
     }
 
     public override async Task CloseAsync(WebSocketCloseStatus closeStatus, string? statusDescription,
@@ -111,11 +153,60 @@ internal sealed class TcpWebSocket : WebSocket
 
     // ---- RFC 6455 フレームの読み書き ----
 
-    private async Task<(WebSocketMessageType, byte[], bool)> ReadFrameAsync(CancellationToken ct)
+    /// <summary>
+    /// データフレームを1つ読む。制御フレーム（Ping/Pong）はデータの途中にも割り込めるため
+    /// （RFC 6455 §5.4）、ここで消化して次のフレームまで読み進める。
+    /// </summary>
+    private async Task<(WebSocketMessageType Type, byte[] Payload, bool IsClose, bool IsFinal)> ReadFrameAsync(CancellationToken ct)
+    {
+        while (true)
+        {
+            var (opcode, payload, isFinal) = await ReadRawFrameAsync(ct);
+
+            switch (opcode)
+            {
+                case 0x08: // Close
+                    return (WebSocketMessageType.Close, Array.Empty<byte>(), true, true);
+
+                case 0x09: // Ping — 同じペイロードを Pong で返す
+                    // 制御フレームのペイロードは 125 バイト以下と定められている（RFC 6455 §5.5）。
+                    // 規格違反の長い Ping をそのまま返して自分が違反しないよう切り詰める。
+                    if (payload.Length > 125) Array.Resize(ref payload, 125);
+                    await SendControlFrameAsync(0x0A, payload, ct);
+                    continue;
+
+                case 0x0A: // Pong — 応答は不要
+                    continue;
+
+                case 0x00: // 継続フレーム。種別は先頭フレームから引き継ぐ
+                    if (!_inFragmentedMessage)
+                        throw new IOException("WebSocket: 断片化が始まっていないのに継続フレームを受信しました");
+                    if (isFinal) _inFragmentedMessage = false;
+                    return (_fragmentType, payload, false, isFinal);
+
+                case 0x01: // Text
+                case 0x02: // Binary
+                    var type = opcode == 0x01 ? WebSocketMessageType.Text : WebSocketMessageType.Binary;
+                    if (!isFinal)
+                    {
+                        _fragmentType = type;
+                        _inFragmentedMessage = true;
+                    }
+                    return (type, payload, false, isFinal);
+
+                default:
+                    throw new IOException($"WebSocket: 未知の opcode 0x{opcode:X2} を受信しました");
+            }
+        }
+    }
+
+    /// <summary>1フレームをそのまま読み取る（opcode・ペイロード・FIN ビット）。</summary>
+    private async Task<(byte Opcode, byte[] Payload, bool IsFinal)> ReadRawFrameAsync(CancellationToken ct)
     {
         byte[] header = new byte[2];
         await ReadExactAsync(header, 2, ct);
 
+        bool isFinal = (header[0] & 0x80) != 0;
         byte opcode = (byte)(header[0] & 0x0F);
         bool masked = (header[1] & 0x80) != 0;
         long payloadLen = header[1] & 0x7F;
@@ -148,9 +239,24 @@ internal sealed class TcpWebSocket : WebSocket
             for (int i = 0; i < payload.Length; i++)
                 payload[i] ^= mask[i % 4];
 
-        bool isClose = opcode == 0x08;
-        var msgType = opcode == 0x01 ? WebSocketMessageType.Text : WebSocketMessageType.Binary;
-        return (msgType, payload, isClose);
+        return (opcode, payload, isFinal);
+    }
+
+    private async Task SendControlFrameAsync(byte opcode, byte[] payload, CancellationToken ct)
+    {
+        if (_state != WebSocketState.Open) return;
+        var frame = BuildServerFrame(opcode, payload, 0, payload.Length);
+        await _sendLock.WaitAsync(ct);
+        try
+        {
+            await Task.Run(() =>
+            {
+                int sent = 0;
+                while (sent < frame.Length)
+                    sent += _socket.Send(frame, sent, frame.Length - sent, SocketFlags.None);
+            }, ct);
+        }
+        finally { _sendLock.Release(); }
     }
 
     private async Task ReadExactAsync(byte[] buffer, int count, CancellationToken ct)
