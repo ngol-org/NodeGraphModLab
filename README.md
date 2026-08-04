@@ -57,7 +57,7 @@
 
 <img src="docs/images/webui_ext_sample.png" alt="WebUI extension sample: live waveform" align="left" /><br clear="left" />
 
-上のスクリーンショットは、周波数・振幅スライダー（widget プラグイン）の操作をリアルタイムに反映しながら Canvas に波形を描画する（nodeRenderer プラグイン）、2 ノード連携のライブデモです。サンプル: [`samples/WebUIPlugins/`](samples/WebUIPlugins/)。詳細ガイド: [docs/webui-plugin-guide.md](docs/webui-plugin-guide.md)
+上のスクリーンショットは、周波数・振幅スライダー（widget プラグイン）の操作をリアルタイムに反映しながら Canvas に波形を描画する（nodeRenderer プラグイン）、2 ノード連携のライブデモです。**このグラフは `NGOL/Graphs/` に同梱されており、WebUI から `Live Waveform Demo` を開けばそのまま動かせます。** サンプル: [`samples/WebUIPlugins/`](samples/WebUIPlugins/)（プラグイン）、[`samples/CustomNodes/custom_webui_samples/`](samples/CustomNodes/custom_webui_samples/)（ノード）、[`samples/Graphs/`](samples/Graphs/)（グラフ）。詳細ガイド: [docs/webui-plugin-guide.md](docs/webui-plugin-guide.md)
 
 ### AI エージェント連携（MCP サーバー）
 - **MCP サーバー（`mcp/`）** — AI エージェントが NGOL を自律操作できる Model Context Protocol サーバー

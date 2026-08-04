@@ -151,6 +151,15 @@ if (Test-Path $webUiDist) {
     Write-Host "    Copied: WebUI/" -ForegroundColor DarkCyan
 } else { Write-Warning "WebUI dist not found: $webUiDist" }
 
+# サンプルグラフ。展開してすぐ WebUI から開けるようにする。
+$graphsSrc = Join-Path $Source "samples\Graphs"
+$graphsDest = Join-Path $ngolStaging "Graphs"
+New-Item -ItemType Directory -Path $graphsDest -Force | Out-Null
+if (Test-Path $graphsSrc) {
+    Copy-Item "$graphsSrc\*.json" $graphsDest -Force
+    Write-Host "    Copied: Graphs/" -ForegroundColor DarkCyan
+} else { Write-Warning "Sample graphs not found: $graphsSrc" }
+
 # mcp（public 版: bundle.js -> dist/index.js、docs/・README.md・mcp.json.example は
 # public repo 側で既に .public サフィックスがリネームされている前提 — 設計 §4.1.3）
 $mcpBundleSrc = Join-Path $Source "mcp\dist\bundle.js"

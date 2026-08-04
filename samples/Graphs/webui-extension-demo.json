@@ -1,0 +1,88 @@
+﻿{
+  "id": "webui-extension-demo",
+  "name": "Live Waveform Demo",
+  "description": "WebUI \u62E1\u5F35\u30D7\u30E9\u30B0\u30A4\u30F3\u306E\u30E9\u30A4\u30D6\u30C7\u30E2\u3002\u30B9\u30E9\u30A4\u30C0\u30FC\u306E\u64CD\u4F5C\u304C\u30EA\u30A2\u30EB\u30BF\u30A4\u30E0\u306B\u6CE2\u5F62\u3078\u53CD\u6620\u3055\u308C\u308B\u69D8\u5B50\u3092\u30012\u3064\u306E\u30CE\u30FC\u30C9\u306E\u9023\u643A\u3067\u793A\u3059\u3002",
+  "schemaVersion": "0.2.0",
+  "version": 1,
+  "createdAt": "2026-08-04T17:15:32.2675145+00:00",
+  "nodes": [
+    {
+      "instanceId": "ctrl",
+      "nodeTypeId": "sample.webui_waveform_control",
+      "nodeTypeVersion": null,
+      "position": {
+        "x": 46.245914,
+        "y": 32.544308
+      },
+      "paramValues": {
+        "frequency": "3.000",
+        "amplitude": "0.350"
+      },
+      "size": null
+    },
+    {
+      "instanceId": "wave",
+      "nodeTypeId": "sample.webui_live_waveform",
+      "nodeTypeVersion": null,
+      "position": {
+        "x": 313.80402,
+        "y": 36.10702
+      },
+      "paramValues": {},
+      "size": null
+    }
+  ],
+  "connections": [
+    {
+      "fromNodeInstanceId": "ctrl",
+      "fromPortName": "frequency",
+      "toNodeInstanceId": "wave",
+      "toPortName": "frequency"
+    },
+    {
+      "fromNodeInstanceId": "ctrl",
+      "fromPortName": "amplitude",
+      "toNodeInstanceId": "wave",
+      "toPortName": "amplitude"
+    }
+  ],
+  "fragments": [],
+  "fragmentLinks": [],
+  "groups": [
+    {
+      "id": "f7013144-233d-41b8-8eac-58de3bbe2b22",
+      "name": "Live Waveform Demo",
+      "description": "Waveform Control \u306E\u30B9\u30E9\u30A4\u30C0\u30FC\u3092\u52D5\u304B\u3059\u3068\u3001Live Waveform \u306E\u6CE2\u5F62\u304C\u305D\u306E\u5834\u3067\u5909\u308F\u308B\u3002\n\nControl \u5074\u306F\u30CE\u30FC\u30C9\u306E\u4E0B\u306B\u30B9\u30E9\u30A4\u30C0\u30FC\u3092\u8DB3\u3059 widget \u30D7\u30E9\u30B0\u30A4\u30F3\u3001Waveform \u5074\u306F\u30CE\u30FC\u30C9\u5168\u4F53\u3092 Canvas \u3067\u63CF\u304F nodeRenderer \u30D7\u30E9\u30B0\u30A4\u30F3\u3002\u7A2E\u985E\u306E\u9055\u30462\u3064\u306E\u62E1\u5F35\u304C\u9023\u643A\u3057\u3066\u3044\u308B\u3002",
+      "nodeInstanceIds": [
+        "ctrl",
+        "wave"
+      ],
+      "collapsed": false,
+      "color": null
+    }
+  ],
+  "annotations": [
+    {
+      "id": "annot-usage",
+      "text": "\u3010\u4F7F\u3044\u65B9\u3011\n\n  \u2460 \u3069\u3061\u3089\u304B\u306E\u30CE\u30FC\u30C9\u3092\u9078\u629E\u3057\u3066\u53F3\u4E0A\u306B\u8868\u793A\u3055\u308C\u308B\u5B9F\u884C\u30DC\u30BF\u30F3\u3092\u30AF\u30EA\u30C3\u30AF\u3057\u3066\u5B9F\u884C\n      \u63A5\u7D9A\u3055\u308C\u305F\u30CE\u30FC\u30C9\u306F\u5148\u982D\u304B\u3089\u5168\u3066\u5B9F\u884C\u3055\u308C\u308B\n\n  \u2461 Waveform Control \u306E\u30B9\u30E9\u30A4\u30C0\u30FC\u3092\u52D5\u304B\u3059\n      Live Waveform \u306E\u6CE2\u5F62\u304C\u305D\u306E\u5834\u3067\u5909\u5316\u3059\u308B\n\n  \u3069\u3061\u3089\u3082\u6C38\u7D9A\u30CE\u30FC\u30C9\u3067\u3001\u4E00\u5EA6\u5B9F\u884C\u3059\u308B\u3068\u505C\u6B62\u3059\u308B\u307E\u3067\u52D5\u304D\u7D9A\u3051\u308B\u3002\n  \u505C\u6B62\u306F\u5404\u30CE\u30FC\u30C9\u3092\u9078\u629E\u3057\u3066\u8868\u793A\u3055\u308C\u308B\u505C\u6B62\u30DC\u30BF\u30F3\u304B\n  WebUI \u53F3\u4E0B\u306E\u6C38\u7D9A\u30CE\u30FC\u30C9\u4E00\u89A7\u304B\u3089\u3082\u505C\u6B62\u3067\u304D\u307E\u3059\u3002",
+      "position": {
+        "x": 4.5946145,
+        "y": -285.73077
+      },
+      "width": 602.5043,
+      "height": 235.25151,
+      "color": "#fff3cd"
+    },
+    {
+      "id": "annot-what",
+      "text": "\u3010\u4ED5\u7D44\u307F\u3011\n\nWebUI \u306F .js \u3092\u7F6E\u304F\u3060\u3051\u3067\u898B\u305F\u76EE\u3092\u62E1\u5F35\u3067\u304D\u308B\u3002\n\u3053\u3053\u3067\u306F2\u7A2E\u985E\u3092\u4F7F\u3063\u3066\u3044\u308B\u3002\n\n  \u25A0 widget        \u30CE\u30FC\u30C9\u306E\u4E0B\u306B\u90E8\u54C1\u3092\u8DB3\u3059\uFF08\u30B9\u30E9\u30A4\u30C0\u30FC\uFF09\n  \u25A0 nodeRenderer  \u30CE\u30FC\u30C9\u5168\u4F53\u3092\u81EA\u5206\u3067\u63CF\u304F\uFF08Canvas \u306E\u6CE2\u5F62\uFF09\n\n\u30CE\u30FC\u30C9\u5074\u306F customWebUi \u3067\u30D7\u30E9\u30B0\u30A4\u30F3ID\u3092\u6307\u3059\u3060\u3051\u3067\u3001\nWebUI \u306E\u518D\u30D3\u30EB\u30C9\u306F\u8981\u3089\u306A\u3044\u3002\n\n\u30BD\u30FC\u30B9    : samples/CustomNodes/custom_webui_samples/\n\u30D7\u30E9\u30B0\u30A4\u30F3: samples/WebUIPlugins/",
+      "position": {
+        "x": 698.29224,
+        "y": -5.7168956
+      },
+      "width": 420.7523,
+      "height": 299.2667,
+      "color": "#e2e3ff"
+    }
+  ]
+}

@@ -34,7 +34,7 @@ if (-not (Test-Path $coreDll)) {
 New-Item -ItemType Directory -Path $OutputDir -Force | Out-Null
 
 Write-Host "`nCopying NGOL resources (no host DLLs)..." -ForegroundColor Yellow
-foreach ($assetDir in @("Nodes", "WebUI", "Extensions")) {
+foreach ($assetDir in @("Nodes", "WebUI", "Extensions", "Graphs")) {
     $src = Join-Path $SourceDir $assetDir
     if (Test-Path $src) {
         Copy-Item $src $OutputDir -Recurse -Force
