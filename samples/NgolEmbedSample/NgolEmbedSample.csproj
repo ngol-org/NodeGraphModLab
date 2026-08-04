@@ -2,8 +2,8 @@
 
   <!--
     「自作.NETアプリへのNGOL組み込み」サンプル。
-    追加のランタイム不要。展開済みリリースzipの NGOL/ フォルダから
-    setup-ngol-embed-sample.ps1 で pluginDir/ を組み立て、そのまま起動できる。
+    展開済みリリースzipの NGOL/ フォルダから setup-ngol-embed-sample.ps1 で
+    ngol-resources/ を組み立てておくと、ビルド時に実行ファイルの隣へコピーされる。
   -->
 
   <PropertyGroup>
@@ -13,32 +13,30 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <AssemblyName>NgolEmbedSample</AssemblyName>
     <RootNamespace>NgolEmbedSample</RootNamespace>
+    <!-- Roslyn の多言語リソースは出力に含めない。en は既定でフォルダを作らない。 -->
+    <SatelliteResourceLanguages>en;ja</SatelliteResourceLanguages>
   </PropertyGroup>
 
   <ItemGroup>
     <!--
-      NodeGraphModLab.Core.dll / NodeGraphModLab.NodeAPI.dll / NodeGraphModLab.HostLogging.dll は
-      コンパイル時の型解決のみに使う。Private=false により自身の出力フォルダへはコピーしない。
-      実行時の実体ロードは Program.cs が pluginDir/ から Assembly.LoadFrom で行う。
-      ProjectReference にすることで MSBuild がビルド順序を保証する。
+      NGOL を通常のライブラリとして参照する。既定の CopyLocal により DLL が自身の出力へ
+      コピーされるので、実行時に読む DLL とビルド時に参照した DLL が常に同一になる。
+      NuGet パッケージや DLL への <Reference> に置き換えてもそのまま動く。
     -->
-    <ProjectReference Include="..\..\NodeGraphModLab.Core\NodeGraphModLab.Core.csproj">
-      <Private>false</Private>
-    </ProjectReference>
-    <ProjectReference Include="..\..\NodeGraphModLab.NodeAPI\NodeGraphModLab.NodeAPI.csproj">
-      <Private>false</Private>
-    </ProjectReference>
-    <ProjectReference Include="..\..\NodeGraphModLab.HostLogging\NodeGraphModLab.HostLogging.csproj">
-      <Private>false</Private>
-    </ProjectReference>
+    <ProjectReference Include="..\..\NodeGraphModLab.Core\NodeGraphModLab.Core.csproj" />
+    <ProjectReference Include="..\..\NodeGraphModLab.NodeAPI\NodeGraphModLab.NodeAPI.csproj" />
+    <ProjectReference Include="..\..\NodeGraphModLab.HostLogging\NodeGraphModLab.HostLogging.csproj" />
   </ItemGroup>
 
   <ItemGroup>
-    <!-- ngol-plugin/ はNGOL自身のRoslynホットリロード用ソース置き場であり、
-         このコンソールアプリ自体のビルド対象ではない -->
-    <Compile Remove="ngol-plugin\**" />
-    <EmbeddedResource Remove="ngol-plugin\**" />
-    <None Remove="ngol-plugin\**" />
+    <!-- ngol-resources/ 配下の .cs は NGOL が実行時に読むノードソース。
+         このアプリ自体のコンパイル対象ではない。 -->
+    <Compile Remove="ngol-resources\**" />
+    <EmbeddedResource Remove="ngol-resources\**" />
+    <None Remove="ngol-resources\**" />
+
+    <!-- NGOLリソースを実行ファイルの隣へ配置する。実アプリでも同梱の形は同じ。 -->
+    <Content Include="ngol-resources\**" CopyToOutputDirectory="PreserveNewest" LinkBase="ngol-resources" />
   </ItemGroup>
 
 </Project>

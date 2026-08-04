@@ -94,7 +94,7 @@ zip化前の展開済みフォルダ（`release/public/staging/NGOL/`）はビ�
 
 | サンプル | 組み込み方式 |
 |---|---|
-| [`samples/NgolEmbedSample/`](samples/NgolEmbedSample/) | コンパイル時に NGOL の DLL を直接参照する、素直な組み込み方 |
+| [`samples/NgolEmbedSample/`](samples/NgolEmbedSample/) | NGOL を通常のライブラリとして参照する、素直な組み込み方 |
 | [`samples/NgolPluggableSample/`](samples/NgolPluggableSample/) | コンパイル時参照を持たず、reflection 経由で「あれば使う、無ければ使わない」任意の依存として組み込む方式 |
 
 上記1で入手した `NGOL/` フォルダを各サンプルの `setup-*.ps1` スクリプトに渡すことでランタイム一式を組み立てられます。
@@ -103,25 +103,24 @@ zip化前の展開済みフォルダ（`release/public/staging/NGOL/`）はビ�
 git clone <このリポジトリのURL>
 cd NodeGraphModLab/samples/NgolEmbedSample
 .\setup-ngol-embed-sample.ps1 -SourceDir "<入手したNGOL/フォルダのパス>"
-dotnet run -- .\ngol-plugin
+dotnet run
 ```
 
-サンプルのセットアップ手順は上記の通りですが、実際にホストアプリケーションへ組み込むコードは以下の数行です（[`NgolActivator.cs`](samples/NgolEmbedSample/NgolActivator.cs)より抜粋）。
+サンプルのセットアップ手順は上記の通りですが、既存アプリへ組み込むために足すコードは以下の数行だけです（[`Program.cs`](samples/NgolEmbedSample/Program.cs)より抜粋）。NGOL を通常のライブラリとして参照し、起動処理へこれを差し込みます。
 
 ```csharp
-// 1. NGOLのDLLをロード（ngolRoot は NGOL/ フォルダのパス）
-Assembly.LoadFrom(Path.Combine(ngolRoot, "NodeGraphModLab.NodeAPI.dll"));
-Assembly.LoadFrom(Path.Combine(ngolRoot, "NodeGraphModLab.Core.dll"));
-Assembly.LoadFrom(Path.Combine(ngolRoot, "NodeGraphModLab.HostLogging.dll"));
-
-// 2. NGOLを起動（WebUIサーバー・ノードレジストリ・ホットリロード監視がまとめて立ち上がる）
+// WebUIサーバー・ノードレジストリ・ホットリロード監視がまとめて立ち上がる。
+// ngolRoot は Nodes/・WebUI/・ngol-config.json を置いたフォルダ（DLLは不要）。
 var logger = new ConsoleFileNgolLogger(Path.Combine(AppContext.BaseDirectory, "host.log"));
 var options = new NgolRuntimeOptions { EnableDirectMode = true, PluginVersion = "MyApp", GameName = "MyApp" };
 var runtime = new NgolRuntime(logger, options);
 runtime.Initialize(ngolRoot);
+
+// アプリ終了時
+runtime.Dispose();
 ```
 
-`EnableDirectMode = true` は、フレーム駆動の Update コールバックを持たないホスト（コンソールアプリ等）向けに、NGOL内部で専用スレッドを立ててポーリングするモードです。フレーム駆動の Update を持つホスト（ゲームエンジン等）では `false` にします。
+`EnableDirectMode = true` のとき、NGOL は内部スレッドを立てて自身を駆動します（自前のループを持たないホスト向け）。自前のループを持つホストでは `false` にし、そのループから `runtime.Tick()` を毎回呼んでください。
 
 ### 3. WebUI・MCP の起動確認
 
