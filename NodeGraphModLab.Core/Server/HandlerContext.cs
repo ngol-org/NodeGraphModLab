@@ -23,6 +23,8 @@ internal sealed class HandlerContext
     public ExtensionServiceRegistry? ExtensionServices { get; }
     public IKVStore? Store { get; }
     public Func<string, Task<bool>> SendOpenGraphToLatestBrowser { get; }
+    /// <summary>接続中の全ブラウザへリロードを指示し、送った件数を返す。</summary>
+    public Func<bool, Task<int>> SendReloadToBrowsers { get; }
     public HotReloadGate HotReloadGate { get; }
 
     public HandlerContext(
@@ -42,7 +44,8 @@ internal sealed class HandlerContext
         ExtensionServiceRegistry? extensionServices = null,
         IKVStore? store = null,
         Func<string, Task<bool>>? sendOpenGraphToLatestBrowser = null,
-        HotReloadGate? hotReloadGate = null)
+        HotReloadGate? hotReloadGate = null,
+        Func<bool, Task<int>>? sendReloadToBrowsers = null)
     {
         Registry = registry;
         LiveParamStore = liveParamStore;
@@ -60,6 +63,7 @@ internal sealed class HandlerContext
         ExtensionServices = extensionServices;
         Store = store;
         SendOpenGraphToLatestBrowser = sendOpenGraphToLatestBrowser ?? (async _ => false);
+        SendReloadToBrowsers = sendReloadToBrowsers ?? (async _ => 0);
         HotReloadGate = hotReloadGate ?? new HotReloadGate();
     }
 }

@@ -22,6 +22,7 @@ interface MenuBarProps {
   onOpenGraphMenuActiveChange: (active: boolean) => void
   onOpenGraphFromFile: () => void
   onExportNodes: () => void
+  onReloadWebUi: () => void
   onUndo: () => void
   onRedo: () => void
   onShowVersion: () => void
@@ -44,7 +45,7 @@ interface MenuBarProps {
   saving: boolean
 }
 
-export function MenuBar({ onClearCanvas, onSave, onSaveAs, onLoadGraph, onOpenGraphMenuActiveChange, onOpenGraphFromFile, onExportNodes, onUndo, onRedo, onShowVersion, debugBridgeEnabled, onToggleDebugBridge, debugDetailLevel, onSetDebugDetailLevel, debugNodeFields, onSetDebugNodeField, onTogglePluginPanel, onShowSnapshotStore, onClearAllSnapshots, onAddAnnotation, canUndo, canRedo, canExportNodes, version, pluginVersion, connected, saving }: MenuBarProps) {
+export function MenuBar({ onClearCanvas, onSave, onSaveAs, onLoadGraph, onOpenGraphMenuActiveChange, onOpenGraphFromFile, onExportNodes, onReloadWebUi, onUndo, onRedo, onShowVersion, debugBridgeEnabled, onToggleDebugBridge, debugDetailLevel, onSetDebugDetailLevel, debugNodeFields, onSetDebugNodeField, onTogglePluginPanel, onShowSnapshotStore, onClearAllSnapshots, onAddAnnotation, canUndo, canRedo, canExportNodes, version, pluginVersion, connected, saving }: MenuBarProps) {
   const pluginPanels = getPluginPanels()
   // プラグイン拡張メニュー — 遅延登録に追従するため変更通知付きストアを購読
   const extensionMenus = useSyncExternalStore(subscribeExtensions, getExtensionSnapshot).menus
@@ -189,6 +190,17 @@ export function MenuBar({ onClearCanvas, onSave, onSaveAs, onLoadGraph, onOpenGr
               disabled={!connected || !canExportNodes}
             >
               <span>Export Nodes as DLL...</span>
+            </button>
+            <div className="menubar-separator" />
+            <button
+              className="menubar-dropdown-item"
+              onClick={() => pick(onReloadWebUi)}
+              title="Reload the page to pick up WebUI plugin changes. The current canvas is kept, including unsaved changes."
+            >
+              <span className="ngol-btn-with-icon">
+                <NgolIcon name="reload" size={14} className="ngol-icon" />
+                Reload WebUI
+              </span>
             </button>
           </div>
         )}

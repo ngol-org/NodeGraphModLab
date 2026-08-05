@@ -127,7 +127,8 @@ public sealed class GraphServer : IDisposable
             extensionServices,
             _store,
             SendOpenGraphToLatestBrowser,
-            resolvedHotReloadGate);
+            resolvedHotReloadGate,
+            SendReloadToBrowsers);
 
         IMessageHandler[] handlerList =
         [
@@ -148,6 +149,7 @@ public sealed class GraphServer : IDisposable
             new SaveGraphHandler(ctx),
             new LoadGraphHandler(ctx),
             new OpenGraphHandler(ctx),
+            new ReloadWebUiHandler(ctx),
             new ListGraphsHandler(ctx),
             new DeleteGraphHandler(ctx),
             new CompileNodeHandler(ctx),
@@ -945,6 +947,35 @@ public sealed class GraphServer : IDisposable
         await target.SendAsync(JsonSerializer.Serialize(
             new OpenGraphPush { GraphId = graphId }, ServerJsonContext.Default.OpenGraphPush));
         return true;
+    }
+
+    /// <summary>
+    /// 接続中の全ブラウザセッションへリロードを指示し、送った件数を返す。
+    /// 各タブは自身の状態を自身のタブ内領域へ退避するため、同時に送っても干渉しない。
+    /// </summary>
+    public async Task<int> SendReloadToBrowsers(bool preserveState)
+    {
+        List<WebSocketSession> targets;
+        lock (_browserSessionsLock)
+        {
+            for (int i = _browserSessions.Count - 1; i >= 0; i--)
+            {
+                if (_browserSessions[i].WebSocket.State != WebSocketState.Open)
+                    _browserSessions.RemoveAt(i);
+            }
+            targets = new List<WebSocketSession>(_browserSessions);
+        }
+
+        var payload = JsonSerializer.Serialize(
+            new ReloadWebUiPush { PreserveState = preserveState }, ServerJsonContext.Default.ReloadWebUiPush);
+
+        var delivered = 0;
+        foreach (var session in targets)
+        {
+            try { await session.SendAsync(payload); delivered++; }
+            catch { /* 切断済みセッションはスキップ */ }
+        }
+        return delivered;
     }
 
     private async Task BroadcastAsync(string message)

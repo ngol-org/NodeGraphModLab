@@ -194,6 +194,12 @@ export interface OpenGraphPush {
   graphId: string
 }
 
+export interface ReloadWebUiPush {
+  type: 'reload_webui_push'
+  /** false のときは状態を引き継がずリロードする。未指定は引き継ぐ。 */
+  preserveState?: boolean
+}
+
 export type ServerMessage =
   | NodeListResponse
   | ExecutionResultResponse
@@ -216,6 +222,7 @@ export type ServerMessage =
   | PersistentNodeChangedMessage
   | WelcomeMessage
   | OpenGraphPush
+  | ReloadWebUiPush
   | ErrorResponse
 
 // ============================================================

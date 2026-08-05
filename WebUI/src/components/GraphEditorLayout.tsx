@@ -30,6 +30,7 @@ import { useGraphEditorSync } from '../hooks/useGraphEditorSync'
 import { useCanvasDisplayNodes } from '../hooks/useCanvasDisplayNodes'
 import { useGraphCanvasHandlers } from '../hooks/useGraphCanvasHandlers'
 import { useAnnotationRfCallbacks } from '../hooks/useAnnotationState'
+import { useWebUiReload } from '../hooks/useWebUiReload'
 import { wsClient } from '../lib/wsClient'
 import { getFragmentIdForNode } from '../lib/fragmentUtils'
 import { MenuBar } from './MenuBar'
@@ -60,7 +61,7 @@ import { subscribeExtensions, getExtensionSnapshot } from '../webuiPlugin/plugin
 import { PluginErrorBoundary } from '../webuiPlugin/PluginErrorBoundary'
 import '../App.css'
 
-const APP_VERSION = 'v0.7.14'
+const APP_VERSION = `v${__APP_VERSION__}`
 const RF_NODE_TYPES = { custom: CustomNode, nodeGroup: GroupNode, annotation: AnnotationNode } as const
 const RF_EDGE_TYPES = { fragmentLink: FragmentLinkEdge } as const
 
@@ -206,6 +207,14 @@ export function GraphEditorLayout({ initialGraphName }: GraphEditorLayoutProps) 
     setClearCanvasDialogOpen: dialogs.setClearCanvasDialogOpen,
   })
 
+  const { reloadNow } = useWebUiReload({
+    buildGraphData: handlers.buildGraphData,
+    applyGraph: handlers.handleLoadGraph,
+    rfRef,
+    nodeTypesReady: nodeTypes.length > 0,
+    addLog,
+  })
+
   useEffect(() => {
     const unsub = wsClient.onMessage(msg => {
       if (msg.type === 'open_graph_push') {
@@ -283,6 +292,7 @@ export function GraphEditorLayout({ initialGraphName }: GraphEditorLayoutProps) 
           const center = rfRef.current?.screenToFlowPosition({ x: window.innerWidth / 2, y: window.innerHeight / 2 }) ?? { x: 100, y: 100 }
           addAnnotationAtPosition(center)
         }}
+        onReloadWebUi={reloadNow}
         canUndo={canUndo}
         canRedo={canRedo}
         canExportNodes={handlers.exportNodeTypeIds.length > 0}
@@ -336,6 +346,13 @@ export function GraphEditorLayout({ initialGraphName }: GraphEditorLayoutProps) 
             Saved {lastSaved.toLocaleTimeString()}
           </span>
         )}
+        <button
+          className="header-icon-btn"
+          onClick={reloadNow}
+          title="Reload WebUI (keeps the current canvas, including unsaved changes)"
+        >
+          <NgolIcon name="reload" size={14} className="ngol-icon" />
+        </button>
         <div
           className="connection-badge"
           title={connected

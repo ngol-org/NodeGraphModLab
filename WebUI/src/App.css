@@ -106,6 +106,19 @@
   letter-spacing: 0.05em;
   flex: 1;
 }
+.header-icon-btn {
+  background: transparent;
+  border: none;
+  color: var(--text-secondary);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  padding: 4px;
+  line-height: 1;
+}
+.header-icon-btn:hover {
+  color: var(--accent);
+}
 .connection-badge {
   display: flex;
   align-items: center;

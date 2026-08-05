@@ -482,6 +482,30 @@ server.tool(
   }
 );
 
+// 5c. reload_webui
+server.tool(
+  "reload_webui",
+  "Tell every connected NodeGraphModLab WebUI browser tab to reload the page, so edited WebUI plugin .js files under the deployed WebUI/plugins/ folder are picked up. " +
+  "By default each tab restores its own canvas afterwards, including unsaved edits — the graph contents never travel through this tool. " +
+  "Does not open a browser tab itself; the delivered field reports how many connected tabs were told to reload (0 means none were connected). " +
+  "Returns as soon as the instruction is sent, not when the reload finishes — the reload drops and re-establishes the WebSocket connection. " +
+  "Note: a plugin change is only picked up if the edited file was deployed to the game/host WebUI folder; editing the repository copy alone has no effect.",
+  {
+    preserveState: z.boolean().optional().describe(
+      "If false, tabs reload into an empty canvas instead of restoring the current one. Defaults to true."
+    ),
+  },
+  async ({ preserveState }) => {
+    return call(async () => {
+      const resp = await client.sendAndWait(
+        { type: "reload_webui", preserveState: preserveState ?? true },
+        "reload_webui_response"
+      );
+      return respond(JSON.stringify(resp, null, 2));
+    });
+  }
+);
+
 // 6. save_graph
 server.tool(
   "save_graph",

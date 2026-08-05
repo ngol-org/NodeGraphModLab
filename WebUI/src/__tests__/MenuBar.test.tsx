@@ -24,6 +24,7 @@ const DEFAULT_PROPS = {
   onOpenGraphMenuActiveChange: vi.fn(),
   onOpenGraphFromFile: vi.fn(),
   onExportNodes: vi.fn(),
+  onReloadWebUi: vi.fn(),
   onUndo: vi.fn(),
   onRedo: vi.fn(),
   onShowVersion: vi.fn(),

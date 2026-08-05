@@ -50,7 +50,9 @@ export async function loadExternalPlugins(): Promise<void> {
           )
         }
         await import(/* @vite-ignore */ entry.scriptUrl)
-        console.log(`[NGOL Plugin] Loaded: ${entry.id}${entry.version ? ' v' + entry.version : ''}`)
+        // scriptUrl の ?v= はデプロイ済みファイルの更新時刻。これが変わらない限り
+        // ブラウザは前回のモジュールを使い回すため、反映の有無を判断する材料として出す。
+        console.log(`[NGOL Plugin] Loaded: ${entry.id}${entry.version ? ' v' + entry.version : ''} (${entry.scriptUrl})`)
       } catch (e) {
         console.warn(`[NGOL Plugin] Failed to load '${entry.id}' (${entry.scriptUrl}):`, e)
       }

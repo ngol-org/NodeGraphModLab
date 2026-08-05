@@ -1,9 +1,16 @@
+import { readFileSync } from 'node:fs'
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
+
+// UI に出すバージョンは package.json を唯一の出所とする（手書きすると更新漏れで実際と食い違う）
+const pkgVersion = JSON.parse(readFileSync(new URL('./package.json', import.meta.url), 'utf-8')).version
 
 // https://vitejs.dev/config/
 export default defineConfig({
   plugins: [react()],
+  define: {
+    __APP_VERSION__: JSON.stringify(pkgVersion),
+  },
   build: {
     // ビルド成果物は ngolRoot 配下からの相対パスで配置
     // ビルド後のコピーは手動 or postcopy スクリプト

@@ -19,6 +19,8 @@ namespace NodeGraphModLab.Server;
 [JsonSerializable(typeof(LoadGraphResponse))]
 [JsonSerializable(typeof(OpenGraphPush))]
 [JsonSerializable(typeof(OpenGraphResponse))]
+[JsonSerializable(typeof(ReloadWebUiPush))]
+[JsonSerializable(typeof(ReloadWebUiResponse))]
 [JsonSerializable(typeof(ListGraphsResponse))]
 [JsonSerializable(typeof(GraphSummary))]
 [JsonSerializable(typeof(DeleteGraphResponse))]

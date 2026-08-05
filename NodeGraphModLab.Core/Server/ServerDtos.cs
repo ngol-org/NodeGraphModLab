@@ -184,6 +184,24 @@ public sealed class OpenGraphResponse
     [JsonPropertyName("graphId")] public string? GraphId { get; set; }
 }
 
+/// <summary>
+/// WebUI にページのリロードを指示するプッシュメッセージ。ページの状態はブラウザ側で
+/// 退避・復元されるため、このメッセージはグラフの内容を運ばない。
+/// </summary>
+public sealed class ReloadWebUiPush
+{
+    [JsonPropertyName("type")] public string Type => "reload_webui_push";
+    [JsonPropertyName("preserveState")] public bool PreserveState { get; set; } = true;
+}
+
+public sealed class ReloadWebUiResponse
+{
+    [JsonPropertyName("type")] public string Type => "reload_webui_response";
+    /// <summary>プッシュを送ったブラウザセッション数。0 は接続中のタブが無かったことを示す。</summary>
+    [JsonPropertyName("delivered")] public int Delivered { get; set; }
+    [JsonPropertyName("preserveState")] public bool PreserveState { get; set; }
+}
+
 public sealed class ListGraphsResponse
 {
     [JsonPropertyName("type")] public string Type => "list_graphs_response";
