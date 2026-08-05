@@ -3,7 +3,9 @@ namespace NodeGraphModLab;
 public sealed class NgolRuntimeOptions
 {
     /// <summary>
-    /// true のとき MonoBehaviour を使わず Timer ループで Update を代替する（IL2CPP interop 不可時のフォールバック）。
+    /// true のとき NGOL が専用スレッドで駆動する。
+    /// false のときはホストが自身のループから Tick() を毎フレーム呼ぶこと。
+    /// ホスト側のフレームループへ乗れない場合のフォールバックとして使う。
     /// </summary>
     public bool EnableDirectMode { get; init; } = false;
 
