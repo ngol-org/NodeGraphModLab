@@ -177,6 +177,20 @@ public sealed class OpenGraphPush
 }
 
 /// <summary>
+/// 保存せずに一時登録したグラフの id を返す。この id は open_graph にそのまま渡せる。
+/// </summary>
+public sealed class RegisterGraphResponse
+{
+    [JsonPropertyName("type")] public string Type => "register_graph_response";
+    [JsonPropertyName("success")] public bool Success { get; set; }
+    [JsonPropertyName("id")] public string? Id { get; set; }
+    /// <summary>失敗時の理由。id_conflicts_with_saved_graph / invalid_graph。</summary>
+    [JsonPropertyName("reason")] public string? Reason { get; set; }
+    /// <summary>現在の一時グラフ保持数。</summary>
+    [JsonPropertyName("count")] public int Count { get; set; }
+}
+
+/// <summary>
 /// プッシュを送ったブラウザセッション1件の情報。どのタブへ届いたかを呼び出し元が判別するために返す。
 /// キャンバスの中身（グラフ名等）はサーバーが持たないため含まない。
 /// </summary>

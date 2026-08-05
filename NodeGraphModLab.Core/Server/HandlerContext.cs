@@ -26,6 +26,8 @@ internal sealed class HandlerContext
     public Func<string, string, Task<List<BrowserTargetInfo>>> SendOpenGraphToBrowsers { get; }
     /// <summary>target で選んだブラウザへリロードを指示し、送れた宛先を返す。</summary>
     public Func<bool, string, Task<List<BrowserTargetInfo>>> SendReloadToBrowsers { get; }
+    /// <summary>保存せずに一時登録されたグラフ。プロセスが生きている間だけ保持する。</summary>
+    internal TemporaryGraphStore TemporaryGraphs { get; } = new();
     public HotReloadGate HotReloadGate { get; }
 
     public HandlerContext(

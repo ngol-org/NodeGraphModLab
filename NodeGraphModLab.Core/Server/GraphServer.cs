@@ -150,6 +150,7 @@ public sealed class GraphServer : IDisposable
             new SaveGraphHandler(ctx),
             new LoadGraphHandler(ctx),
             new OpenGraphHandler(ctx),
+            new RegisterGraphHandler(ctx),
             new ReloadWebUiHandler(ctx),
             new ListGraphsHandler(ctx),
             new DeleteGraphHandler(ctx),

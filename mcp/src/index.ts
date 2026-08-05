@@ -488,6 +488,34 @@ server.tool(
   }
 );
 
+// 5bb. register_graph
+server.tool(
+  "register_graph",
+  "Register a NodeGraph JSON object in the host's memory WITHOUT writing it to persistent storage, and get back an id. " +
+  "Pass that id to open_graph_in_browser to show it on the canvas. Use this instead of save_graph + open_graph_in_browser " +
+  "when you are trying a graph out and do not want it to appear in list_graphs or leave a file behind. " +
+  "For the required JSON format, call get_graph_spec first. " +
+  "The registration lives until the host process exits; the newest 100 are kept and older ones are dropped. " +
+  "Registering the same id again replaces it. If the graph's id matches an already-saved graph the call is rejected " +
+  "(reason: id_conflicts_with_saved_graph) so a temporary graph can never hide a saved one — omit the id to have one generated. " +
+  "Opening a temporary graph looks exactly like a saved one in the WebUI, so saving it there turns it into a real stored graph.",
+  {
+    graph: z.record(z.string(), z.unknown()).describe("NodeGraph JSON object to register in memory"),
+  },
+  async ({ graph }) => {
+    return call(async () => {
+      const resp = await client.sendAndWait(
+        { type: "register_graph", graph },
+        "register_graph_response"
+      );
+      const text = resp["success"]
+        ? `Registered (not saved): ${resp["id"]}\nOpen it with open_graph_in_browser(nameOrId="${resp["id"]}"). Temporary graphs held: ${resp["count"]}`
+        : `Register failed: ${resp["reason"] ?? "unknown error"}`;
+      return respond(text);
+    });
+  }
+);
+
 // 5c. reload_webui
 server.tool(
   "reload_webui",
