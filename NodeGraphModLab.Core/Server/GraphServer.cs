@@ -50,6 +50,13 @@ public sealed class GraphServer : IDisposable
     private bool _disposed;
 
     /// <summary>
+    /// 全セッションで共有するスナップショットストア。
+    /// 観測対象のホストプロセスは1つなので、その観測結果もプロセス単位で持つ。
+    /// これによりツールクライアントが実行した値を後から接続したクライアントも読める。
+    /// </summary>
+    private readonly NotifyingSnapshotStore _sharedSnapshotStore = new();
+
+    /// <summary>
     /// 1メッセージとして受け入れる最大バイト数。分割受信を無制限に連結すると、
     /// 壊れたクライアントや過大な送信でメモリを食い尽くせるため上限を設ける。
     /// </summary>
@@ -171,6 +178,34 @@ public sealed class GraphServer : IDisposable
             };
             _ = BroadcastAsync(JsonSerializer.Serialize(push, ServerJsonContext.Default.PersistentNodeChangedPush));
         };
+
+        SetupSharedSnapshotStore();
+    }
+
+    /// <summary>
+    /// 共有スナップショットストアのコールバックを設定する。
+    /// 実行は並行しうるため、実行ごとに差し替えず接続の有無によらず一度だけ設定する。
+    /// </summary>
+    private void SetupSharedSnapshotStore()
+    {
+        // 保存を全セッションへ通知する。誰が実行したかによらず同じ観測結果を見る。
+        _sharedSnapshotStore.OnSet = (nodeId, portName, value) =>
+        {
+            var push = new SnapshotSavedPush
+            {
+                NodeInstanceId = nodeId,
+                PortName = portName,
+                ValueType = value?.GetType().Name ?? "null",
+                ValueString = value?.ToString(),
+            };
+            _ = BroadcastAsync(JsonSerializer.Serialize(push, ServerJsonContext.Default.SnapshotSavedPush));
+        };
+
+        // ピンは「上書きされたくない」意思表示なので、いずれかのセッションが留めていれば保護する。
+        _sharedSnapshotStore.CanSet = nodeId => !_sessions.Any(s => s.PinnedSnapshotNodeIds.Contains(nodeId));
+
+        // 起動時自動実行の結果も同じストアへ入れる。
+        StartupNullSession.Instance.SnapshotStore = _sharedSnapshotStore;
     }
 
     public void Start()
@@ -244,20 +279,9 @@ public sealed class GraphServer : IDisposable
             {
                 var baseCtx = new MainThreadExecutionContext("engine", _log, _runner, _registry, _store, _liveParamStore, _extensionServices);
 
-                // Snapshot 保存通知を収集（ピン留めノードはスキップ）
-                var savedSnapshots = new System.Collections.Concurrent.ConcurrentBag<(string nodeId, string portName, string valueType, string? valueString)>();
-                if (session.SnapshotStore is NotifyingSnapshotStore notifyingStore)
-                {
-                    notifyingStore.OnSet = (nodeId, portName, value) =>
-                    {
-                        _log.LogInfo($"[OnSet] nodeId={nodeId} port={portName} val={value}");
-                        var typeName = value?.GetType().Name ?? "null";
-                        var valueString = value?.ToString();
-                        savedSnapshots.Add((nodeId, portName, typeName, valueString));
-                    };
-                    // CanSet: PIN 状態を常に最新の PinnedSnapshotNodeIds で判定（LivePush 時も有効）
-                    notifyingStore.CanSet = nodeId => !session.PinnedSnapshotNodeIds.Contains(nodeId);
-                }
+                // ストアは全セッション共有のため、実行ごとにコールバックを差し替えない
+                // （実行は Task.Run で並行しうるので、差し替えると互いに上書きし合う）。
+                // OnSet / CanSet の設定は接続時に一度だけ行う（SetupSharedSnapshotStore）。
 
                 // ノード実行進捗を全セッションにブロードキャスト
                 _executor.OnNodeProgress = async (nodeId, status, durationMs) =>
@@ -296,11 +320,6 @@ public sealed class GraphServer : IDisposable
                 }
 
                 _executor.OnNodeProgress = null;
-                if (session.SnapshotStore is NotifyingSnapshotStore ns2)
-                {
-                    ns2.OnSet = null;
-                    // CanSet はリセットしない（LivePush でも常に PIN チェックが働くようにする）
-                }
 
                 // 起動時自動実行（グラフ経路）は WS 応答/ブロードキャストの宛先が実質存在しないため、
                 // RunStartupNode と同じ形式でホストログへ成否を出力する
@@ -312,18 +331,7 @@ public sealed class GraphServer : IDisposable
                         _log.LogError($"[Startup] Graph '{graph.Id}' execution failed: {result.ErrorMessage}");
                 }
 
-                // Snapshot 保存通知を Push
-                foreach (var (savedNodeId, portName, valueType, valueString) in savedSnapshots)
-                {
-                    var push = new SnapshotSavedPush
-                    {
-                        NodeInstanceId = savedNodeId,
-                        PortName = portName,
-                        ValueType = valueType,
-                        ValueString = valueString,
-                    };
-                    await session.SendAsync(JsonSerializer.Serialize(push, ServerJsonContext.Default.SnapshotSavedPush));
-                }
+                // Snapshot 保存通知は共有ストアの OnSet が全セッションへ送る（SetupSharedSnapshotStore）。
 
                 // ログを全セッションに Push
                 foreach (var entry in result.Logs)
@@ -511,7 +519,7 @@ public sealed class GraphServer : IDisposable
                 // Chrome が接続を強制切断する（Edge/Firefox は再現しない）。
                 var subProtocol = !string.IsNullOrEmpty(presentedToken) ? presentedToken : null;
                 var wsContext = await context.AcceptWebSocketAsync(subProtocol);
-                var session = new WebSocketSession(wsContext.WebSocket);
+                var session = new WebSocketSession(wsContext.WebSocket, _sharedSnapshotStore);
                 var query = context.Request.Url?.Query ?? "";
                 if (query.Contains("client=mcp"))
                     session.IsToolClient = true;
@@ -576,7 +584,7 @@ public sealed class GraphServer : IDisposable
                     var subProtocol = !string.IsNullOrEmpty(presentedToken) ? presentedToken : null;
                     var ws = await MonoWebSocketHelper.AcceptAsync(client, req, subProtocol);
                     if (ws == null) return;
-                    var session = new WebSocketSession(ws);
+                    var session = new WebSocketSession(ws, _sharedSnapshotStore);
                     if (req.Path.Contains("client=mcp"))
                         session.IsToolClient = true;
                     _sessions.Add(session);
@@ -969,13 +977,20 @@ public sealed class WebSocketSession : ISession
     public WebSocket WebSocket { get; }
     public bool IsToolClient { get; set; }
 
-    /// <summary>セッション単位のスナップショットストア（ホストプロセス起動中インメモリ保持）。</summary>
-    public NotifyingSnapshotStore SnapshotStore { get; } = new NotifyingSnapshotStore();
+    /// <summary>
+    /// 全セッションで共有するスナップショットストア（ホストプロセス起動中インメモリ保持）。
+    /// 観測対象は1つのホストなので、観測結果もセッションをまたいで同じものを見る。
+    /// </summary>
+    public NotifyingSnapshotStore SnapshotStore { get; }
 
     /// <summary>ピン留めされた Snapshot ノードインスタンス ID のセット。ピン ON 時は SetSnapshot をスキップ。</summary>
     public HashSet<string> PinnedSnapshotNodeIds { get; } = new HashSet<string>();
 
-    public WebSocketSession(WebSocket ws) { WebSocket = ws; }
+    public WebSocketSession(WebSocket ws, NotifyingSnapshotStore snapshotStore)
+    {
+        WebSocket = ws;
+        SnapshotStore = snapshotStore;
+    }
 
     public async Task SendAsync(string message)
     {
@@ -1001,7 +1016,11 @@ internal sealed class StartupNullSession : ISession
     public static readonly StartupNullSession Instance = new();
     private StartupNullSession() { }
 
-    public NotifyingSnapshotStore SnapshotStore { get; } = new();
+    /// <summary>
+    /// 起動時自動実行の結果も、後から接続するクライアントが読めるよう共有ストアへ書く。
+    /// GraphServer 生成時に注入される。
+    /// </summary>
+    public NotifyingSnapshotStore SnapshotStore { get; internal set; } = new();
     public HashSet<string> PinnedSnapshotNodeIds { get; } = new();
     public Task SendAsync(string message) => Task.CompletedTask;
 }

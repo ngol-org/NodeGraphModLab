@@ -15,6 +15,7 @@ vi.mock('../lib/wsClient', () => ({
     getSnapshotHistory: vi.fn(),
     restoreSnapshot: vi.fn(),
     clearSnapshot: vi.fn(),
+    getSnapshotStoreState: vi.fn(),
   },
 }))
 
@@ -26,6 +27,7 @@ function emit(msg: ServerMessage) {
 
 // モック後にインポート（vi.mock はホイストされるため import 順は問題ない）
 import { useSavedSnapshots, useSnapshotHistory, snapshotPortKey } from '../hooks/useGraphEditor'
+import { wsClient } from '../lib/wsClient'
 
 describe('snapshotPortKey', () => {
   it('nodeInstanceId と portName を : で結合する', () => {
@@ -36,6 +38,7 @@ describe('snapshotPortKey', () => {
 describe('useSavedSnapshots', () => {
   beforeEach(() => {
     messageHandlers = []
+    vi.mocked(wsClient.getSnapshotStoreState).mockClear()
   })
 
   it('複数ポートに順番に snapshot_saved しても savedSnapshotsByPort は全ポート分残る', () => {
@@ -80,6 +83,32 @@ describe('useSavedSnapshots', () => {
     expect(result.current.savedSnapshotsByPort.get('n1:items')?.valueString).toBe('["a"]')
     expect(result.current.savedSnapshotsByPort.get('n1:selected')?.valueString).toBe('a')
     expect(result.current.savedSnapshotsByPort.get('n2:value')?.valueString).toBe('1.5')
+  })
+
+  it('welcome 受信で SnapshotStore の状態を要求する', () => {
+    renderHook(() => useSavedSnapshots())
+
+    emit({ type: 'welcome', pluginVersion: '0.0.0', gameName: 'test', runtimeType: 'Mono' })
+
+    expect(wsClient.getSnapshotStoreState).toHaveBeenCalledTimes(1)
+  })
+
+  it('再接続のたびに要求する（welcome は接続ごとに届く）', () => {
+    renderHook(() => useSavedSnapshots())
+
+    emit({ type: 'welcome', pluginVersion: '0.0.0', gameName: 'test', runtimeType: 'Mono' })
+    emit({ type: 'welcome', pluginVersion: '0.0.0', gameName: 'test', runtimeType: 'Mono' })
+
+    expect(wsClient.getSnapshotStoreState).toHaveBeenCalledTimes(2)
+  })
+
+  it('welcome 以外のメッセージでは要求しない', () => {
+    renderHook(() => useSavedSnapshots())
+
+    emit({ type: 'snapshot_saved', nodeInstanceId: 'n1', portName: 'items', valueType: 'String', valueString: '[]' })
+    emit({ type: 'all_snapshots_cleared' })
+
+    expect(wsClient.getSnapshotStoreState).not.toHaveBeenCalled()
   })
 })
 

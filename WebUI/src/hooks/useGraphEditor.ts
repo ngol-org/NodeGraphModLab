@@ -394,6 +394,11 @@ export function useSavedSnapshots() {
           }
           return next
         })
+      } else if (msg.type === 'welcome') {
+        // 状態は snapshot_saved の受信で積み上げるため、リロードすると失われる。
+        // welcome は接続ごとに必ず届き、自動再接続も同じ経路を通るので、
+        // ここで要求すれば初回・リロード・再接続のいずれでも復元できる。
+        wsClient.getSnapshotStoreState()
       }
     })
     return unsub
