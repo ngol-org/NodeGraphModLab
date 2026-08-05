@@ -460,11 +460,17 @@ server.tool(
 // 5b. open_graph_in_browser
 server.tool(
   "open_graph_in_browser",
-  "Tell the most-recently-connected NodeGraphModLab WebUI browser tab to load the given saved graph via a WebSocket push — no URL/query-string manipulation involved. Does not open a browser tab itself; open http://localhost:11156/ separately first (e.g. via shell start command) if no tab is open yet. If the response's delivered field is false, no browser tab was connected to push to.",
+  "Tell a connected NodeGraphModLab WebUI browser tab to load the given saved graph via a WebSocket push — no URL/query-string manipulation involved. " +
+  "Defaults to the most-recently-connected tab; pass target to choose otherwise. " +
+  "Does not open a browser tab itself; open http://localhost:11156/ separately first (e.g. via shell start command) if no tab is open yet. " +
+  "The response's targets array lists which tabs were actually pushed to (empty means none matched).",
   {
     nameOrId: z.string().describe("Graph name or id to open"),
+    target: z.string().optional().describe(
+      "Which browser tab(s) to push to: 'latest' (default, most-recently-connected), 'all', or a session id from a previous response's targets array (e.g. 'browser-2')."
+    ),
   },
-  async ({ nameOrId }) => {
+  async ({ nameOrId, target }) => {
     return call(async () => {
       let id = nameOrId;
       const listResp = await client.sendAndWait({ type: "list_graphs" }, "list_graphs_response");
@@ -474,7 +480,7 @@ server.tool(
         if (byName) id = byName.id;
       }
       const resp = await client.sendAndWait(
-        { type: "open_graph", id },
+        { type: "open_graph", id, target: target ?? "latest" },
         "open_graph_response"
       );
       return respond(JSON.stringify(resp, null, 2));
@@ -485,20 +491,24 @@ server.tool(
 // 5c. reload_webui
 server.tool(
   "reload_webui",
-  "Tell every connected NodeGraphModLab WebUI browser tab to reload the page, so edited WebUI plugin .js files under the deployed WebUI/plugins/ folder are picked up. " +
+  "Tell connected NodeGraphModLab WebUI browser tabs to reload the page, so edited WebUI plugin .js files under the deployed WebUI/plugins/ folder are picked up. " +
+  "Defaults to every connected tab; pass target to choose otherwise. " +
   "By default each tab restores its own canvas afterwards, including unsaved edits — the graph contents never travel through this tool. " +
-  "Does not open a browser tab itself; the delivered field reports how many connected tabs were told to reload (0 means none were connected). " +
+  "Does not open a browser tab itself; the delivered field reports how many tabs were told to reload and targets lists which ones (0 / empty means none matched). " +
   "Returns as soon as the instruction is sent, not when the reload finishes — the reload drops and re-establishes the WebSocket connection. " +
   "Note: a plugin change is only picked up if the edited file was deployed to the game/host WebUI folder; editing the repository copy alone has no effect.",
   {
     preserveState: z.boolean().optional().describe(
       "If false, tabs reload into an empty canvas instead of restoring the current one. Defaults to true."
     ),
+    target: z.string().optional().describe(
+      "Which browser tab(s) to push to: 'all' (default), 'latest' (most-recently-connected), or a session id from a previous response's targets array (e.g. 'browser-2')."
+    ),
   },
-  async ({ preserveState }) => {
+  async ({ preserveState, target }) => {
     return call(async () => {
       const resp = await client.sendAndWait(
-        { type: "reload_webui", preserveState: preserveState ?? true },
+        { type: "reload_webui", preserveState: preserveState ?? true, target: target ?? "all" },
         "reload_webui_response"
       );
       return respond(JSON.stringify(resp, null, 2));

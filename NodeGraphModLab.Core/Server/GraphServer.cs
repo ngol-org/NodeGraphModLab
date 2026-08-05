@@ -1,4 +1,5 @@
 using System.Collections.Concurrent;
+using System.Globalization;
 using System.Linq;
 using System.IO;
 using System.Net;
@@ -126,7 +127,7 @@ public sealed class GraphServer : IDisposable
             executor,
             extensionServices,
             _store,
-            SendOpenGraphToLatestBrowser,
+            SendOpenGraphToBrowsers,
             resolvedHotReloadGate,
             SendReloadToBrowsers);
 
@@ -927,55 +928,77 @@ public sealed class GraphServer : IDisposable
         _ = BroadcastAsync(JsonSerializer.Serialize(push, ServerJsonContext.Default.ExecutionLogPush));
     }
 
-    public async Task<bool> SendOpenGraphToLatestBrowser(string graphId)
+    /// <summary>
+    /// target で指定されたブラウザセッションを選ぶ。
+    /// "all" = 全件 / "latest" = 最後に接続した1件 / それ以外 = その Id に一致する1件。
+    ///
+    /// 切断済みの除去を選択より先に行う。逆にすると既に閉じたタブを選んでしまう。
+    /// </summary>
+    private List<WebSocketSession> SelectBrowserTargets(string target)
     {
-        WebSocketSession? target = null;
         lock (_browserSessionsLock)
         {
             for (int i = _browserSessions.Count - 1; i >= 0; i--)
             {
                 if (_browserSessions[i].WebSocket.State != WebSocketState.Open)
-                {
                     _browserSessions.RemoveAt(i);
-                    continue;
-                }
-                target = _browserSessions[i];
-                break;
             }
+
+            if (string.Equals(target, "all", StringComparison.OrdinalIgnoreCase))
+                return new List<WebSocketSession>(_browserSessions);
+
+            if (string.Equals(target, "latest", StringComparison.OrdinalIgnoreCase))
+            {
+                var last = _browserSessions.Count > 0 ? _browserSessions[_browserSessions.Count - 1] : null;
+                return last != null ? new List<WebSocketSession> { last } : new List<WebSocketSession>();
+            }
+
+            // 名指し。一致しなければ空を返す（別のタブへ送らない）
+            var named = _browserSessions.FirstOrDefault(s => string.Equals(s.Id, target, StringComparison.OrdinalIgnoreCase));
+            return named != null ? new List<WebSocketSession> { named } : new List<WebSocketSession>();
         }
-        if (target == null) return false;
-        await target.SendAsync(JsonSerializer.Serialize(
-            new OpenGraphPush { GraphId = graphId }, ServerJsonContext.Default.OpenGraphPush));
-        return true;
+    }
+
+    private static List<BrowserTargetInfo> Describe(IEnumerable<WebSocketSession> sessions) =>
+        sessions.Select(s => new BrowserTargetInfo
+        {
+            Id = s.Id,
+            ConnectedAt = s.ConnectedAt.ToString("o", CultureInfo.InvariantCulture),
+        }).ToList();
+
+    /// <summary>
+    /// target で選んだブラウザへグラフを開くよう指示し、実際に送れた宛先を返す。
+    /// </summary>
+    public async Task<List<BrowserTargetInfo>> SendOpenGraphToBrowsers(string graphId, string target)
+    {
+        var payload = JsonSerializer.Serialize(
+            new OpenGraphPush { GraphId = graphId }, ServerJsonContext.Default.OpenGraphPush);
+
+        var sent = new List<WebSocketSession>();
+        foreach (var session in SelectBrowserTargets(target))
+        {
+            try { await session.SendAsync(payload); sent.Add(session); }
+            catch { /* 切断済みセッションはスキップ */ }
+        }
+        return Describe(sent);
     }
 
     /// <summary>
-    /// 接続中の全ブラウザセッションへリロードを指示し、送った件数を返す。
+    /// target で選んだブラウザセッションへリロードを指示し、実際に送れた宛先を返す。
     /// 各タブは自身の状態を自身のタブ内領域へ退避するため、同時に送っても干渉しない。
     /// </summary>
-    public async Task<int> SendReloadToBrowsers(bool preserveState)
+    public async Task<List<BrowserTargetInfo>> SendReloadToBrowsers(bool preserveState, string target)
     {
-        List<WebSocketSession> targets;
-        lock (_browserSessionsLock)
-        {
-            for (int i = _browserSessions.Count - 1; i >= 0; i--)
-            {
-                if (_browserSessions[i].WebSocket.State != WebSocketState.Open)
-                    _browserSessions.RemoveAt(i);
-            }
-            targets = new List<WebSocketSession>(_browserSessions);
-        }
-
         var payload = JsonSerializer.Serialize(
             new ReloadWebUiPush { PreserveState = preserveState }, ServerJsonContext.Default.ReloadWebUiPush);
 
-        var delivered = 0;
-        foreach (var session in targets)
+        var sent = new List<WebSocketSession>();
+        foreach (var session in SelectBrowserTargets(target))
         {
-            try { await session.SendAsync(payload); delivered++; }
+            try { await session.SendAsync(payload); sent.Add(session); }
             catch { /* 切断済みセッションはスキップ */ }
         }
-        return delivered;
+        return Describe(sent);
     }
 
     private async Task BroadcastAsync(string message)
@@ -1004,9 +1027,20 @@ public sealed class GraphServer : IDisposable
 
 public sealed class WebSocketSession : ISession
 {
+    private static int _nextSequence;
+
     private readonly SemaphoreSlim _sendLock = new(1, 1);
     public WebSocket WebSocket { get; }
     public bool IsToolClient { get; set; }
+
+    /// <summary>
+    /// 送信先を名指しするための識別子。プロセス内で一意。
+    /// 接続を張り直すと別の値になるため、タブに永続的な名前を与えるものではない。
+    /// </summary>
+    public string Id { get; }
+
+    /// <summary>接続を受理した時刻。どれが最後の接続かを応答から判断できるようにするため。</summary>
+    public DateTimeOffset ConnectedAt { get; }
 
     /// <summary>
     /// 全セッションで共有するスナップショットストア（ホストプロセス起動中インメモリ保持）。
@@ -1021,6 +1055,8 @@ public sealed class WebSocketSession : ISession
     {
         WebSocket = ws;
         SnapshotStore = snapshotStore;
+        Id = "browser-" + Interlocked.Increment(ref _nextSequence).ToString(CultureInfo.InvariantCulture);
+        ConnectedAt = DateTimeOffset.UtcNow;
     }
 
     public async Task SendAsync(string message)

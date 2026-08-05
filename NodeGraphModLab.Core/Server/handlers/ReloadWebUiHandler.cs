@@ -14,9 +14,18 @@ internal sealed class ReloadWebUiHandler : IMessageHandler
         var preserveState = !root.TryGetProperty("preserveState", out var el)
             || el.ValueKind != JsonValueKind.False;
 
-        var delivered = await _ctx.SendReloadToBrowsers(preserveState);
+        // 拡張の反映が主な用途なので既定は全タブ。
+        var target = BrowserTarget.Read(root, defaultTarget: "all");
+
+        var targets = await _ctx.SendReloadToBrowsers(preserveState, target);
         await session.SendAsync(JsonSerializer.Serialize(
-            new ReloadWebUiResponse { Delivered = delivered, PreserveState = preserveState },
+            new ReloadWebUiResponse
+            {
+                Delivered = targets.Count,
+                PreserveState = preserveState,
+                Target = target,
+                Targets = targets,
+            },
             ServerJsonContext.Default.ReloadWebUiResponse));
     }
 }

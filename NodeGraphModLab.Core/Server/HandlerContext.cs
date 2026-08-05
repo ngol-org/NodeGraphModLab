@@ -22,9 +22,10 @@ internal sealed class HandlerContext
     public GraphExecutor Executor { get; }
     public ExtensionServiceRegistry? ExtensionServices { get; }
     public IKVStore? Store { get; }
-    public Func<string, Task<bool>> SendOpenGraphToLatestBrowser { get; }
-    /// <summary>接続中の全ブラウザへリロードを指示し、送った件数を返す。</summary>
-    public Func<bool, Task<int>> SendReloadToBrowsers { get; }
+    /// <summary>target で選んだブラウザへグラフを開くよう指示し、送れた宛先を返す。</summary>
+    public Func<string, string, Task<List<BrowserTargetInfo>>> SendOpenGraphToBrowsers { get; }
+    /// <summary>target で選んだブラウザへリロードを指示し、送れた宛先を返す。</summary>
+    public Func<bool, string, Task<List<BrowserTargetInfo>>> SendReloadToBrowsers { get; }
     public HotReloadGate HotReloadGate { get; }
 
     public HandlerContext(
@@ -43,9 +44,9 @@ internal sealed class HandlerContext
         GraphExecutor executor,
         ExtensionServiceRegistry? extensionServices = null,
         IKVStore? store = null,
-        Func<string, Task<bool>>? sendOpenGraphToLatestBrowser = null,
+        Func<string, string, Task<List<BrowserTargetInfo>>>? sendOpenGraphToBrowsers = null,
         HotReloadGate? hotReloadGate = null,
-        Func<bool, Task<int>>? sendReloadToBrowsers = null)
+        Func<bool, string, Task<List<BrowserTargetInfo>>>? sendReloadToBrowsers = null)
     {
         Registry = registry;
         LiveParamStore = liveParamStore;
@@ -62,8 +63,8 @@ internal sealed class HandlerContext
         Executor = executor;
         ExtensionServices = extensionServices;
         Store = store;
-        SendOpenGraphToLatestBrowser = sendOpenGraphToLatestBrowser ?? (async _ => false);
-        SendReloadToBrowsers = sendReloadToBrowsers ?? (async _ => 0);
+        SendOpenGraphToBrowsers = sendOpenGraphToBrowsers ?? ((_, _) => Task.FromResult(new List<BrowserTargetInfo>()));
+        SendReloadToBrowsers = sendReloadToBrowsers ?? ((_, _) => Task.FromResult(new List<BrowserTargetInfo>()));
         HotReloadGate = hotReloadGate ?? new HotReloadGate();
     }
 }

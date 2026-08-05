@@ -13,9 +13,22 @@ internal sealed class OpenGraphHandler : IMessageHandler
     {
         var id = root.TryGetProperty("id", out var idEl) ? idEl.GetString() : null;
         var success = !string.IsNullOrEmpty(id);
-        var delivered = success && await _ctx.SendOpenGraphToLatestBrowser(id!);
+
+        // 既定は最新1タブ。従来の挙動を変えないため。
+        var target = BrowserTarget.Read(root, defaultTarget: "latest");
+
+        var targets = success
+            ? await _ctx.SendOpenGraphToBrowsers(id!, target)
+            : new List<BrowserTargetInfo>();
+
         await session.SendAsync(JsonSerializer.Serialize(
-            new OpenGraphResponse { Success = success, Delivered = delivered, GraphId = id },
+            new OpenGraphResponse
+            {
+                Success = success,
+                Delivered = targets.Count > 0,
+                GraphId = id,
+                Targets = targets,
+            },
             ServerJsonContext.Default.OpenGraphResponse));
     }
 }

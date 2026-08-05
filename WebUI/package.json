@@ -1,6 +1,6 @@
 {
   "name": "graph-editor-webui",
-  "version": "0.7.25",
+  "version": "0.7.26",
   "private": true,
   "type": "module",
   "scripts": {

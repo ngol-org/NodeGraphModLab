@@ -176,12 +176,24 @@ public sealed class OpenGraphPush
     [JsonPropertyName("graphId")] public string GraphId { get; set; } = "";
 }
 
+/// <summary>
+/// プッシュを送ったブラウザセッション1件の情報。どのタブへ届いたかを呼び出し元が判別するために返す。
+/// キャンバスの中身（グラフ名等）はサーバーが持たないため含まない。
+/// </summary>
+public sealed class BrowserTargetInfo
+{
+    [JsonPropertyName("id")] public string Id { get; set; } = "";
+    [JsonPropertyName("connectedAt")] public string ConnectedAt { get; set; } = "";
+}
+
 public sealed class OpenGraphResponse
 {
     [JsonPropertyName("type")] public string Type => "open_graph_response";
     [JsonPropertyName("success")] public bool Success { get; set; }
     [JsonPropertyName("delivered")] public bool Delivered { get; set; }
     [JsonPropertyName("graphId")] public string? GraphId { get; set; }
+    /// <summary>実際にプッシュを送った宛先。</summary>
+    [JsonPropertyName("targets")] public List<BrowserTargetInfo> Targets { get; set; } = new();
 }
 
 /// <summary>
@@ -197,9 +209,12 @@ public sealed class ReloadWebUiPush
 public sealed class ReloadWebUiResponse
 {
     [JsonPropertyName("type")] public string Type => "reload_webui_response";
-    /// <summary>プッシュを送ったブラウザセッション数。0 は接続中のタブが無かったことを示す。</summary>
+    /// <summary>プッシュを送ったブラウザセッション数。0 は宛先が無かったことを示す。</summary>
     [JsonPropertyName("delivered")] public int Delivered { get; set; }
     [JsonPropertyName("preserveState")] public bool PreserveState { get; set; }
+    [JsonPropertyName("target")] public string Target { get; set; } = "";
+    /// <summary>実際にプッシュを送った宛先。</summary>
+    [JsonPropertyName("targets")] public List<BrowserTargetInfo> Targets { get; set; } = new();
 }
 
 public sealed class ListGraphsResponse
