@@ -350,7 +350,9 @@ server.tool(
 // 3c. get_graph_spec
 server.tool(
   "get_graph_spec",
-  "Get the NodeGraph JSON format specification (schema, node/connection/fragment structure, data types, save/load rules). Call this before constructing a graph JSON for save_graph or execute_graph.",
+  "Get the NodeGraph JSON format specification (schema, node/connection/fragment structure, data types, save/load rules). Call this before constructing a graph JSON for save_graph or execute_graph. " +
+  "This returns the JSON structure only — it does NOT list the port names of individual node types. " +
+  "Before writing any connection, call get_node_detail on every node type involved to read its actual port names: a wrong port name still executes successfully but silently leaves the nodes unconnected.",
   {},
   async () => {
     budget.consume();
@@ -484,7 +486,8 @@ server.tool(
 server.tool(
   "save_graph",
   "Save a NodeGraph JSON object to persistent storage. For the required JSON format (schemaVersion, nodes, connections, fragments, fragmentLinks, groups, annotations fields), call get_graph_spec first. " +
-  "IMPORTANT: Always set each node's position { x, y } (e.g. x: 50, 350, 700, ... spaced 300px apart). Without positions, all nodes overlap in the WebUI.",
+  "IMPORTANT: Always set each node's position { x, y } (e.g. x: 50, 350, 700, ... spaced 300px apart). Without positions, all nodes overlap in the WebUI. " +
+  "IMPORTANT: Port names are not validated — a connection naming a port that does not exist is accepted, executes successfully, and silently leaves the nodes unconnected. Read the real port names with get_node_detail before writing connections.",
   {
     graph: z.record(z.string(), z.unknown()).describe("NodeGraph JSON object to save"),
   },
