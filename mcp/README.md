@@ -127,6 +127,7 @@ MCP ツールのレスポンス末尾に任意のメッセージを挿入する�
 |---|---|
 | `execute_graph` | グラフ全体を実行し、ログとスナップショットを返す（タイムアウト 30 秒） |
 | `execute_fragment` / `execute_all_fragments` | 断片単位・全断片の実行（`fragmentLinks` を使うグラフ向け） |
+| （上記3つ共通） | `graph` の代わりに `graphId` を渡すとホストが保持しているグラフを実行する。本文が呼び出し側の文脈を通らないため、大きなグラフはこちらを使う |
 | `run_node` | グラフを組まずに単一ノードを直接実行 |
 | `release_snapshot` | `run_node` が返す `$snapshot` ハンドルの解放 |
 

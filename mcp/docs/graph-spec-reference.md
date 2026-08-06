@@ -125,6 +125,11 @@ Color 型 paramValues の形式: `{ "color": { "r": 1.0, "g": 0.5, "b": 0.0, "a"
 - `execute_graph` — 断片数 ≤ 1 の単純グラフを丸ごと実行
 - `execute_fragment` — 指定断片 1 つを実行（上流の依存断片は自動実行される）
 - `execute_all_fragments` — 全断片を依存順に実行。`pinnedNodeIds` で特定 Snapshot をスキップ可能
+- 上記3つは `graph` の代わりに **`graphId`** を受け付ける。`register_graph` /
+  `register_graph_from_file` が返した id、または保存済みグラフの名前か id を渡すと、
+  ホスト側で本文を引いて実行する（**本文が呼び出し側の文脈を通らない**）。
+  `graph` と `graphId` は排他で、どちらか一方が必須。
+  指すのは**保存されている内容**であり、ブラウザの未保存編集ではない
 - Snapshot ノードが `SnapshotStore` に値を保存し、`fragmentLinks` 経由で下流断片の入力に注入される
 - ノードを実行しない限りスナップショット値は更新されない（UI 操作だけでは反映されない）
 

@@ -870,29 +870,100 @@ server.tool(
   }
 );
 
+/** graph と graphId は排他。問題があれば呼び出し側へ返す説明文、無ければ null。 */
+function checkGraphArgs(graph: unknown, graphId: unknown): string | null {
+  if (graph && graphId)
+    return "Specify either graph or graphId, not both — it is ambiguous which one should run.";
+  if (!graph && !graphId)
+    return (
+      "Either graph or graphId is required. Pass graphId to run a graph the host already holds " +
+      "(an id from register_graph / register_graph_from_file, or a saved graph's name or id)."
+    );
+  return null;
+}
+
+const GRAPH_ID_ARG = z.string().describe(
+  "Id of a graph the host already holds — from register_graph / register_graph_from_file, or a saved graph's name or id. " +
+  "The body is fetched host-side and never enters your context, so use this for graphs too large to pass inline. " +
+  "Mutually exclusive with graph. Note this runs the stored contents, not a browser tab's unsaved edits."
+);
+
+/**
+ * graphId から実行対象の本文を取り出す。本文は呼び出し側の文脈へ載せない。
+ *
+ * 生の文字列で先に引く。名前解決を先に通すと、一時グラフの id が保存済みグラフの
+ * 名前と一致したとき別のグラフへすり替わる。
+ */
+async function loadGraphById(graphId: string) {
+  const describe = (g: Record<string, unknown>) => {
+    const nodes = Array.isArray(g["nodes"]) ? (g["nodes"] as unknown[]).length : 0;
+    return `Running graph: ${g["name"] ?? "(unnamed)"} [${g["id"] ?? graphId}] — ${nodes} nodes`;
+  };
+
+  const direct = await client.sendAndWait({ type: "load_graph", id: graphId }, "load_graph_response");
+  if (direct["success"] && direct["graph"]) {
+    const g = direct["graph"] as Record<string, unknown>;
+    return { graph: g, label: describe(g) };
+  }
+
+  const listResp = await client.sendAndWait({ type: "list_graphs" }, "list_graphs_response");
+  const graphs = listResp["graphs"] as Array<{ id: string; name: string }> | undefined;
+  const byName = graphs?.find((g) => g.name === graphId);
+  if (byName) {
+    const resolved = await client.sendAndWait({ type: "load_graph", id: byName.id }, "load_graph_response");
+    if (resolved["success"] && resolved["graph"]) {
+      const g = resolved["graph"] as Record<string, unknown>;
+      return { graph: g, label: describe(g) };
+    }
+  }
+
+  throw new Error(
+    `graph_not_found: no saved or temporary graph matches "${graphId}". ` +
+    `Temporary graphs live only inside the host process and only the newest 100 are kept.`
+  );
+}
+
+/** graph そのものか graphId のどちらかから、実行に渡す本文を得る。 */
+async function resolveGraphArg(graph: Record<string, unknown> | undefined, graphId: string | undefined) {
+  if (graph) return { graph, label: null as string | null };
+  return await loadGraphById(graphId!);
+}
+
 // 7. execute_graph
 server.tool(
   "execute_graph",
   "Execute a NodeGraph and return execution logs and snapshots. For the required JSON format, call get_graph_spec first. For analysis graphs that log JSON:{...}, check the Logs output. For Snapshot nodes, check the Snapshots output. " +
   "If any node calls RegisterPersistent, a jobId is returned for it regardless of the async flag — poll it with check_job_status. " +
-  "Set async:true for graphs that may run long (large batches, etc.) to get a jobId immediately instead of waiting up to 30s for the result.",
+  "Set async:true for graphs that may run long (large batches, etc.) to get a jobId immediately instead of waiting up to 30s for the result. " +
+  "Pass graphId instead of graph to run a graph the host already holds without putting its body in your context.",
   {
-    graph: z.record(z.string(), z.unknown()).describe("NodeGraph JSON object to execute"),
+    graph: z.record(z.string(), z.unknown()).optional().describe(
+      "NodeGraph JSON object to execute. Mutually exclusive with graphId; exactly one is required."
+    ),
+    graphId: GRAPH_ID_ARG.optional(),
     async: z.boolean().optional().describe(
       "If true, return a jobId immediately instead of waiting for the result. Poll the result with check_job_status."
     ),
   },
-  async ({ graph, async: isAsync }) => {
+  async ({ graph: graphArg, graphId, async: isAsync }) => {
+    const argErr = checkGraphArgs(graphArg, graphId);
+    if (argErr) return respond(argErr, "execute_graph");
     return call(async () => {
+      const { graph, label } = await resolveGraphArg(graphArg, graphId);
       if (isAsync) {
         const resp = await client.sendAndWait({ type: "execute_graph", graph, async: true }, "job_started");
-        return respond(`Job started: ${resp["jobId"]}. Poll with check_job_status(jobId="${resp["jobId"]}").`, "execute_graph");
+        return respond(
+          [label, `Job started: ${resp["jobId"]}. Poll with check_job_status(jobId="${resp["jobId"]}").`]
+            .filter(Boolean).join("\n"),
+          "execute_graph"
+        );
       }
       const { result, logs, snapshots } = await client.sendAndWaitExecution(
         { type: "execute_graph", graph },
         30000
       );
       const lines: string[] = [
+        ...(label ? [label] : []),
         result["success"]
           ? `Execution succeeded: ${(result["durationMs"] as number | undefined)?.toFixed(1) ?? "?"}ms`
           : `Execution failed: ${result["errorMessage"] ?? "unknown error"}`,
@@ -922,9 +993,13 @@ server.tool(
 // 8. execute_all_fragments
 server.tool(
   "execute_all_fragments",
-  "Execute all fragments of a graph in dependency order, optionally with pinned snapshot nodes. Use this for multi-fragment graphs that use fragmentLinks. For the JSON format, call get_graph_spec first.",
+  "Execute all fragments of a graph in dependency order, optionally with pinned snapshot nodes. Use this for multi-fragment graphs that use fragmentLinks. For the JSON format, call get_graph_spec first. " +
+  "Pass graphId instead of graph to run a graph the host already holds without putting its body in your context.",
   {
-    graph: z.record(z.string(), z.unknown()).describe("NodeGraph JSON object"),
+    graph: z.record(z.string(), z.unknown()).optional().describe(
+      "NodeGraph JSON object. Mutually exclusive with graphId; exactly one is required."
+    ),
+    graphId: GRAPH_ID_ARG.optional(),
     pinnedNodeIds: z
       .array(z.string())
       .optional()
@@ -933,20 +1008,28 @@ server.tool(
       "If true, return a jobId immediately instead of waiting for the result. Poll the result with check_job_status."
     ),
   },
-  async ({ graph, pinnedNodeIds, async: isAsync }) => {
+  async ({ graph: graphArg, graphId, pinnedNodeIds, async: isAsync }) => {
+    const argErr = checkGraphArgs(graphArg, graphId);
+    if (argErr) return respond(argErr, "execute_all_fragments");
     return call(async () => {
+      const { graph, label } = await resolveGraphArg(graphArg, graphId);
       if (isAsync) {
         const resp = await client.sendAndWait(
           { type: "execute_all_fragments", graph, pinnedNodeIds: pinnedNodeIds ?? [], async: true },
           "job_started"
         );
-        return respond(`Job started: ${resp["jobId"]}. Poll with check_job_status(jobId="${resp["jobId"]}").`, "execute_all_fragments");
+        return respond(
+          [label, `Job started: ${resp["jobId"]}. Poll with check_job_status(jobId="${resp["jobId"]}").`]
+            .filter(Boolean).join("\n"),
+          "execute_all_fragments"
+        );
       }
       const { result, logs, snapshots } = await client.sendAndWaitExecution(
         { type: "execute_all_fragments", graph, pinnedNodeIds: pinnedNodeIds ?? [] },
         30000
       );
       const lines: string[] = [
+        ...(label ? [label] : []),
         result["success"]
           ? `All fragments executed successfully: ${(result["durationMs"] as number | undefined)?.toFixed(1) ?? "?"}ms`
           : `All-fragments execution failed: ${result["errorMessage"] ?? "unknown error"}`,
@@ -980,11 +1063,14 @@ server.tool(
   "Upstream fragments (those linked via fragmentLinks) are executed automatically first. " +
   "Snapshots persist across execute_fragment calls within the same session. " +
   "The graph MUST have explicit 'fragments' array defined. " +
-  "For the JSON format, call get_graph_spec first.",
+  "For the JSON format, call get_graph_spec first. " +
+  "Pass graphId instead of graph to run a fragment of a graph the host already holds without putting its body in your context.",
   {
-    graph: z.record(z.string(), z.unknown()).describe(
-      "NodeGraph JSON object. Must have 'fragments' array with each fragment's nodeInstanceIds."
+    graph: z.record(z.string(), z.unknown()).optional().describe(
+      "NodeGraph JSON object. Must have 'fragments' array with each fragment's nodeInstanceIds. " +
+      "Mutually exclusive with graphId; exactly one is required."
     ),
+    graphId: GRAPH_ID_ARG.optional(),
     fragmentId: z.string().describe(
       "ID of the fragment to execute (must match an id in graph.fragments)"
     ),
@@ -996,20 +1082,28 @@ server.tool(
       "If true, return a jobId immediately instead of waiting for the result. Poll the result with check_job_status."
     ),
   },
-  async ({ graph, fragmentId, pinnedFragmentIds, async: isAsync }) => {
+  async ({ graph: graphArg, graphId, fragmentId, pinnedFragmentIds, async: isAsync }) => {
+    const argErr = checkGraphArgs(graphArg, graphId);
+    if (argErr) return respond(argErr, "execute_fragment");
     return call(async () => {
+      const { graph, label } = await resolveGraphArg(graphArg, graphId);
       if (isAsync) {
         const resp = await client.sendAndWait(
           { type: "execute_fragment", graph, fragmentId, pinnedFragmentIds: pinnedFragmentIds ?? [], async: true },
           "job_started"
         );
-        return respond(`Job started: ${resp["jobId"]}. Poll with check_job_status(jobId="${resp["jobId"]}").`, "execute_fragment");
+        return respond(
+          [label, `Job started: ${resp["jobId"]}. Poll with check_job_status(jobId="${resp["jobId"]}").`]
+            .filter(Boolean).join("\n"),
+          "execute_fragment"
+        );
       }
       const { result, logs, snapshots } = await client.sendAndWaitExecution(
         { type: "execute_fragment", graph, fragmentId, pinnedFragmentIds: pinnedFragmentIds ?? [] },
         30000
       );
       const lines: string[] = [
+        ...(label ? [label] : []),
         result["success"]
           ? `Fragment execution succeeded [${fragmentId}]: ${(result["durationMs"] as number | undefined)?.toFixed(1) ?? "?"}ms`
           : `Fragment execution failed [${fragmentId}]: ${result["errorMessage"] ?? "unknown error"}`,
