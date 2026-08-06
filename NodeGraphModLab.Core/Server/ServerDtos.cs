@@ -248,10 +248,22 @@ public sealed class CanvasGraphEntry
     /// <summary>どのタブの内容か。<see cref="BrowserTargetInfo.Id"/> と同じ値。</summary>
     [JsonPropertyName("id")] public string Id { get; set; } = "";
     [JsonPropertyName("connectedAt")] public string ConnectedAt { get; set; } = "";
-    /// <summary>取得できたキャンバス。取得できなかったタブでは null。</summary>
-    [JsonPropertyName("graph")] public NodeGraph? Graph { get; set; }
+    /// <summary>
+    /// 現在の内容を表す識別子。次回 ifNoneMatch へ渡すと、変わっていなければ本文が省かれる。
+    /// 要求元にとっては不透明でよい（自分で計算するものではない）。
+    /// </summary>
+    [JsonPropertyName("hash")] public string? Hash { get; set; }
+    /// <summary>ifNoneMatch と一致したため本文を省いたか。エラーではない。</summary>
+    [JsonPropertyName("unchanged")] public bool Unchanged { get; set; }
     /// <summary>取得できなかった理由。timeout / invalid_graph。</summary>
     [JsonPropertyName("error")] public string? Error { get; set; }
+    /// <summary>
+    /// 取得できたキャンバス。内容が変わっていないとき・取得できなかったときは null。
+    ///
+    /// 大きくなりうるので最後に置く。呼び出し側が応答を長さで打ち切る場合に、
+    /// 先に hash を読めないと次回この本文を省く手段が得られなくなる。
+    /// </summary>
+    [JsonPropertyName("graph")] public NodeGraph? Graph { get; set; }
 }
 
 /// <summary>

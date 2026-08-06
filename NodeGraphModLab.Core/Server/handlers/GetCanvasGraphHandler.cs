@@ -26,17 +26,22 @@ internal sealed class GetCanvasGraphHandler : IMessageHandler
             ? Math.Min(MaxTimeoutMs, Math.Max(MinTimeoutMs, t.GetInt32()))
             : DefaultTimeoutMs;
 
-        var results = await _ctx.RequestCanvasFromBrowsers(target, timeoutMs);
-        var got = results.Count(r => r.Graph != null);
+        var ifNoneMatch = root.TryGetProperty("ifNoneMatch", out var inm) && inm.ValueKind == JsonValueKind.String
+            ? inm.GetString()
+            : null;
+
+        var results = await _ctx.RequestCanvasFromBrowsers(target, timeoutMs, ifNoneMatch);
+        // 本文が無くても Unchanged なら答えは得られている。応答が来なかった場合だけ失敗。
+        var answered = results.Count(r => r.Graph != null || r.Unchanged);
 
         await session.SendAsync(JsonSerializer.Serialize(
             new GetCanvasGraphResponse
             {
-                Success = got > 0,
+                Success = answered > 0,
                 Target = target,
                 Asked = results.Count,
                 Results = results,
-                Reason = got > 0 ? null
+                Reason = answered > 0 ? null
                     : results.Count == 0 ? "no_browser_connected" : "timeout",
             },
             ServerJsonContext.Default.GetCanvasGraphResponse));

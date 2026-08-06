@@ -27,7 +27,7 @@ internal sealed class HandlerContext
     /// <summary>target で選んだブラウザへリロードを指示し、送れた宛先を返す。</summary>
     public Func<bool, string, Task<List<BrowserTargetInfo>>> SendReloadToBrowsers { get; }
     /// <summary>target で選んだブラウザへ現在のキャンバスを尋ね、タブごとの結果を返す。</summary>
-    public Func<string, int, Task<List<CanvasGraphEntry>>> RequestCanvasFromBrowsers { get; }
+    public Func<string, int, string?, Task<List<CanvasGraphEntry>>> RequestCanvasFromBrowsers { get; }
     /// <summary>ブラウザから返ってきたキャンバスを、待っている要求へ引き渡す。</summary>
     public Func<string, NodeGraph?, bool> CompleteCanvasRequest { get; }
     /// <summary>保存せずに一時登録されたグラフ。プロセスが生きている間だけ保持する。</summary>
@@ -53,7 +53,7 @@ internal sealed class HandlerContext
         Func<string, string, Task<List<BrowserTargetInfo>>>? sendOpenGraphToBrowsers = null,
         HotReloadGate? hotReloadGate = null,
         Func<bool, string, Task<List<BrowserTargetInfo>>>? sendReloadToBrowsers = null,
-        Func<string, int, Task<List<CanvasGraphEntry>>>? requestCanvasFromBrowsers = null,
+        Func<string, int, string?, Task<List<CanvasGraphEntry>>>? requestCanvasFromBrowsers = null,
         Func<string, NodeGraph?, bool>? completeCanvasRequest = null)
     {
         Registry = registry;
@@ -73,7 +73,7 @@ internal sealed class HandlerContext
         Store = store;
         SendOpenGraphToBrowsers = sendOpenGraphToBrowsers ?? ((_, _) => Task.FromResult(new List<BrowserTargetInfo>()));
         SendReloadToBrowsers = sendReloadToBrowsers ?? ((_, _) => Task.FromResult(new List<BrowserTargetInfo>()));
-        RequestCanvasFromBrowsers = requestCanvasFromBrowsers ?? ((_, _) => Task.FromResult(new List<CanvasGraphEntry>()));
+        RequestCanvasFromBrowsers = requestCanvasFromBrowsers ?? ((_, _, _) => Task.FromResult(new List<CanvasGraphEntry>()));
         CompleteCanvasRequest = completeCanvasRequest ?? ((_, _) => false);
         HotReloadGate = hotReloadGate ?? new HotReloadGate();
     }

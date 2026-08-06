@@ -1017,7 +1017,7 @@ public sealed class GraphServer : IDisposable
     /// target で選んだブラウザへ現在のキャンバスを尋ね、返ってきた内容を返す。
     /// 応答が無かったタブも error 付きで含めるので、asked と results の件数は一致する。
     /// </summary>
-    public async Task<List<CanvasGraphEntry>> RequestCanvasFromBrowsers(string target, int timeoutMs)
+    public async Task<List<CanvasGraphEntry>> RequestCanvasFromBrowsers(string target, int timeoutMs, string? ifNoneMatch)
     {
         var sessions = SelectBrowserTargets(target);
         if (sessions.Count == 0) return new List<CanvasGraphEntry>();
@@ -1028,7 +1028,8 @@ public sealed class GraphServer : IDisposable
             var token = Guid.NewGuid().ToString("N");
             var wait = _pendingCanvas.Register(token, session.Id);
             var payload = JsonSerializer.Serialize(
-                new CanvasGraphRequestPush { RequestToken = token }, ServerJsonContext.Default.CanvasGraphRequestPush);
+                new CanvasGraphRequestPush { RequestToken = token },
+                ServerJsonContext.Default.CanvasGraphRequestPush);
             try
             {
                 await session.SendAsync(payload);
@@ -1056,11 +1057,20 @@ public sealed class GraphServer : IDisposable
         foreach (var w in waits)
         {
             var graph = w.Task.Status == TaskStatus.RanToCompletion ? w.Task.Result : null;
+            // 内容が要求元の持っているものと同じなら本文を落とす。
+            // 判定はここで行う。ブラウザ側でやると、ハッシュの規則と
+            // 「どのフィールドが揮発するか」を2つの実装で持つことになる。
+            var hash = graph != null ? CanvasContentHash.Compute(graph) : null;
+            var unchanged = hash != null && hash == ifNoneMatch;
+
             results.Add(new CanvasGraphEntry
             {
                 Id = w.Session.Id,
                 ConnectedAt = w.Session.ConnectedAt.ToString("o", CultureInfo.InvariantCulture),
-                Graph = graph,
+                Graph = unchanged ? null : graph,
+                Hash = hash,
+                Unchanged = unchanged,
+                // 本文が無くても Unchanged なら正常。応答自体が来なかった場合だけエラー。
                 Error = graph == null ? "timeout" : null,
             });
         }

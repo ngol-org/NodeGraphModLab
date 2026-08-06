@@ -551,7 +551,8 @@ server.tool(
   "This is the only way to observe hand-made changes that were never written to disk; load_graph returns the saved file instead. " +
   "The returned graph has the same shape as load_graph, so it can be passed straight to register_graph or save_graph. " +
   "Requires at least one open WebUI browser tab: with none connected it fails with reason 'no_browser_connected'. " +
-  "Each result carries the session id of the tab it came from, so with target 'all' you can tell which canvas is which.",
+  "Each result carries the session id of the tab it came from, so with target 'all' you can tell which canvas is which. " +
+  "Every result also carries a 'hash' of the canvas contents. Pass it back as ifNoneMatch next time and the graph body is omitted when nothing changed — worth doing on every repeat read, since the body otherwise lands in your context each call.",
   {
     target: z.string().optional().describe(
       "Which browser tab to read: 'latest' (most-recently-connected, default), 'all' (every tab, returns one result each), or a session id from a previous response's targets array (e.g. 'browser-2')."
@@ -559,14 +560,18 @@ server.tool(
     timeoutMs: z.number().optional().describe(
       "How long the host waits for the tab to answer, in milliseconds (500-60000, default 8000). Raise it only for very large graphs."
     ),
+    ifNoneMatch: z.string().optional().describe(
+      "A 'hash' value from an earlier response. Tabs whose canvas still hashes to this return unchanged:true with no graph body; tabs that differ return the body as usual. The value is opaque — copy it, do not compute it. Safe to use with target 'all': the hash identifies contents, not a tab."
+    ),
   },
-  async ({ target, timeoutMs }) => {
+  async ({ target, timeoutMs, ifNoneMatch }) => {
     return call(async () => {
       const resp = await client.sendAndWait(
         {
           type: "get_canvas_graph",
           target: target ?? "latest",
           ...(timeoutMs !== undefined ? { timeoutMs } : {}),
+          ...(ifNoneMatch !== undefined ? { ifNoneMatch } : {}),
         },
         "get_canvas_graph_response",
         // ホスト側の待ち時間より先にこちらが諦めると、理由の付いた応答を受け取れない。
