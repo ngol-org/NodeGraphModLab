@@ -74,6 +74,85 @@ async function ensureNodeCache(): Promise<NodeTypeInfo[]> {
   return nodeCache;
 }
 
+/**
+ * グラフ本文を返すツール専用の上限。
+ *
+ * グラフは 1 ノードあたり 300〜600 文字（indent 2）あり、既定の上限では数十ノードで超える。
+ * 全体を広げるとログ等まで緩むため、対象を絞って別枠にしている。
+ */
+const GRAPH_MAX_CHARS = parseInt(process.env.NGOL_MAX_GRAPH_RESPONSE_CHARS ?? "32000");
+
+/** 超過時に本文の代わりに載せる要約。グラフを理解するためではなく、次の手を選ぶための材料。 */
+function summarizeGraph(graph: Record<string, unknown> | null | undefined) {
+  const arr = (k: string) => (Array.isArray(graph?.[k]) ? (graph[k] as unknown[]) : []);
+  const nodes = arr("nodes") as Array<Record<string, unknown>>;
+  const types = [...new Set(nodes.map((n) => String(n?.["nodeTypeId"] ?? "")).filter(Boolean))];
+  const MAX_TYPES = 20;
+  return {
+    id: graph?.["id"],
+    name: graph?.["name"],
+    nodes: nodes.length,
+    connections: arr("connections").length,
+    fragments: arr("fragments").length,
+    groups: arr("groups").length,
+    annotations: arr("annotations").length,
+    nodeTypeIds:
+      types.length > MAX_TYPES
+        ? [...types.slice(0, MAX_TYPES), `+${types.length - MAX_TYPES} more`]
+        : types,
+  };
+}
+
+function omittedHint(chars: number, limit: number) {
+  return (
+    `Body omitted: ${chars} chars exceeds the ${limit} limit. ` +
+    `Options: narrow the target, split the graph, or raise NGOL_MAX_GRAPH_RESPONSE_CHARS.`
+  );
+}
+
+/**
+ * グラフ本文を含む応答を返す。上限を超えたら本文を落として要約に差し替える。
+ *
+ * 先頭を切ると JSON の構文が壊れ、受け取った側は解析も再送もできない。
+ * 「先頭を切り取っても意味が残る」出力（ログ・一覧）は respond() のままでよい。
+ */
+function respondGraphJson(value: unknown, toolName?: string) {
+  const pretty = JSON.stringify(value, null, 2);
+  if (pretty.length <= GRAPH_MAX_CHARS) return respondRaw(pretty, toolName);
+
+  const chars = pretty.length;
+  const hint = omittedHint(chars, GRAPH_MAX_CHARS);
+  const v = value as Record<string, unknown>;
+
+  // get_canvas_graph は外枠が小さく大きいのは graph だけなので、枠を残して差し替える。
+  // hash が残るため、本文が読めなくても「変わったか」は次回以降も追える。
+  if (Array.isArray(v?.["results"])) {
+    const results = (v["results"] as Array<Record<string, unknown>>).map((r) => {
+      const g = r["graph"] as Record<string, unknown> | null;
+      if (!g) return r;
+      const { graph: _omitted, ...rest } = r;
+      return {
+        ...rest,
+        graphOmitted: { reason: "too_large", chars, limit: GRAPH_MAX_CHARS, ...summarizeGraph(g), hint },
+      };
+    });
+    return respondRaw(JSON.stringify({ ...v, results }, null, 2), toolName);
+  }
+
+  // load_graph はグラフそのものを返すので全体を置き換える。
+  return respondRaw(
+    JSON.stringify({ tooLarge: true, chars, limit: GRAPH_MAX_CHARS, ...summarizeGraph(v), hint }, null, 2),
+    toolName
+  );
+}
+
+/** respond() から切り詰めだけ外したもの。上限判定を済ませた本文をそのまま通す。 */
+function respondRaw(text: string, toolName?: string) {
+  const reminder = toolName ? reminders.pick(toolName) : null;
+  const reminderPrefix = reminder ? `${reminder}\n\n---\n` : "";
+  return { content: [{ type: "text" as const, text: reminderPrefix + text + budget.statusSuffix() }] };
+}
+
 function respond(text: string, toolName?: string) {
   const body =
     text.length > MAX_CHARS
@@ -434,7 +513,8 @@ server.tool(
 // 5. load_graph
 server.tool(
   "load_graph",
-  "Load a saved graph by name or id and return its JSON.",
+  "Load a saved graph by name or id and return its JSON. " +
+  "If the graph is too large to return, a summary (counts, node type ids) is returned with tooLarge:true instead of a truncated fragment.",
   {
     nameOrId: z.string().describe("Graph name or id to load"),
   },
@@ -452,7 +532,7 @@ server.tool(
         { type: "load_graph", id },
         "load_graph_response"
       );
-      return respond(JSON.stringify(resp["graph"], null, 2));
+      return respondGraphJson(resp["graph"], "load_graph");
     });
   }
 );
@@ -552,7 +632,8 @@ server.tool(
   "The returned graph has the same shape as load_graph, so it can be passed straight to register_graph or save_graph. " +
   "Requires at least one open WebUI browser tab: with none connected it fails with reason 'no_browser_connected'. " +
   "Each result carries the session id of the tab it came from, so with target 'all' you can tell which canvas is which. " +
-  "Every result also carries a 'hash' of the canvas contents. Pass it back as ifNoneMatch next time and the graph body is omitted when nothing changed — worth doing on every repeat read, since the body otherwise lands in your context each call.",
+  "Every result also carries a 'hash' of the canvas contents. Pass it back as ifNoneMatch next time and the graph body is omitted when nothing changed — worth doing on every repeat read, since the body otherwise lands in your context each call. " +
+  "If the graph is too large to return, the body is replaced by a graphOmitted summary (counts, node type ids, hash) instead of a truncated fragment; the hash still works with ifNoneMatch.",
   {
     target: z.string().optional().describe(
       "Which browser tab to read: 'latest' (most-recently-connected, default), 'all' (every tab, returns one result each), or a session id from a previous response's targets array (e.g. 'browser-2')."
@@ -577,7 +658,7 @@ server.tool(
         // ホスト側の待ち時間より先にこちらが諦めると、理由の付いた応答を受け取れない。
         Math.max(15000, (timeoutMs ?? 8000) + 5000)
       );
-      return respond(JSON.stringify(resp, null, 2));
+      return respondGraphJson(resp, "get_canvas_graph");
     });
   }
 );

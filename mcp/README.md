@@ -30,6 +30,7 @@ NodeGraphModLab.Core（ホストプロセスに組み込まれた .NET ランタ
 | `NGOL_WS_URL` | 任意 | `ws://127.0.0.1:11156/ws` | NGOL の WebSocket URL |
 | `NGOL_SCRIPTS_DIR` | 任意 | （自動） | カスタムノード `.cs` の保存先。未設定時はホストの `ngolRoot/Nodes/CustomNodes/cs` を自動使用 |
 | `NGOL_MAX_RESPONSE_CHARS` | 任意 | `8000` | ツールレスポンスの最大文字数。大きな解析結果を取得する場合は増やす |
+| `NGOL_MAX_GRAPH_RESPONSE_CHARS` | 任意 | `32000` | グラフ本文を返すツール（`get_canvas_graph` / `load_graph`）だけに使う上限。グラフは 1 ノード 300〜600 文字あり 27 ノードで 8,000 を超えるため別枠にしている。超えた場合は途中で切らず、件数とノード型の要約を返す |
 | `NGOL_MAX_TOOL_CALLS` | 任意 | `100` | 1 セッションで呼び出せるツール数の上限 |
 | `NGOL_REMINDERS_FILE` | 任意 | （自動検索） | リマインダー設定 JSON の絶対パス |
 | `NGOL_DOCS_DIR` | 任意 | 同梱の `docs/` | ガイド文書（`node-dev-reference.md` 等）を差し替えるディレクトリの絶対パス。配布物を書き換えずに独自ガイドへ差し替えたい場合に使う |
@@ -48,7 +49,8 @@ NodeGraphModLab.Core（ホストプロセスに組み込まれた .NET ランタ
       "env": {
         "NGOL_WS_URL": "ws://127.0.0.1:11156/ws",
         "NGOL_SCRIPTS_DIR": "./Nodes/CustomNodes/cs",
-        "NGOL_MAX_RESPONSE_CHARS": "12000"
+        "NGOL_MAX_RESPONSE_CHARS": "12000",
+        "NGOL_MAX_GRAPH_RESPONSE_CHARS": "32000"
       }
     }
   }
