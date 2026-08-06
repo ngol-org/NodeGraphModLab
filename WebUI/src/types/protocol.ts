@@ -200,6 +200,12 @@ export interface ReloadWebUiPush {
   preserveState?: boolean
 }
 
+export interface CanvasGraphRequestPush {
+  type: 'canvas_graph_request_push'
+  /** 応答にそのまま載せて返す。どの要求への応答かを突き合わせるために使う。 */
+  requestToken: string
+}
+
 export type ServerMessage =
   | NodeListResponse
   | ExecutionResultResponse
@@ -223,6 +229,7 @@ export type ServerMessage =
   | WelcomeMessage
   | OpenGraphPush
   | ReloadWebUiPush
+  | CanvasGraphRequestPush
   | ErrorResponse
 
 // ============================================================

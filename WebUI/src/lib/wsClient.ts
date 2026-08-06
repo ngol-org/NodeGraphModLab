@@ -96,6 +96,11 @@ class GraphWebSocketClient {
 
   saveGraph(graph: NodeGraphData) { this.send({ type: 'save_graph', graph }) }
 
+  /** canvas_graph_request_push への応答。requestToken はそのまま返す。 */
+  sendCanvasGraphResult(requestToken: string, graph: NodeGraphData) {
+    this.send({ type: 'canvas_graph_result', requestToken, graph })
+  }
+
   loadGraph(id: string, purpose: LoadGraphPurpose = 'open') {
     this.loadPurpose = purpose
     this.send({ type: 'load_graph', id })

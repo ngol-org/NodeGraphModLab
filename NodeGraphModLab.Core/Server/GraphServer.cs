@@ -48,6 +48,7 @@ public sealed class GraphServer : IDisposable
     private readonly ConcurrentBag<WebSocketSession> _sessions = new();
     private readonly List<WebSocketSession> _browserSessions = new();
     private readonly object _browserSessionsLock = new();
+    private readonly PendingCanvasRequests _pendingCanvas = new();
     private bool _disposed;
 
     /// <summary>
@@ -129,7 +130,9 @@ public sealed class GraphServer : IDisposable
             _store,
             SendOpenGraphToBrowsers,
             resolvedHotReloadGate,
-            SendReloadToBrowsers);
+            SendReloadToBrowsers,
+            RequestCanvasFromBrowsers,
+            _pendingCanvas.Complete);
 
         IMessageHandler[] handlerList =
         [
@@ -152,6 +155,8 @@ public sealed class GraphServer : IDisposable
             new OpenGraphHandler(ctx),
             new RegisterGraphHandler(ctx),
             new ReloadWebUiHandler(ctx),
+            new GetCanvasGraphHandler(ctx),
+            new CanvasGraphResultHandler(ctx),
             new ListGraphsHandler(ctx),
             new DeleteGraphHandler(ctx),
             new CompileNodeHandler(ctx),
@@ -770,6 +775,12 @@ public sealed class GraphServer : IDisposable
         {
             _log.LogError($"[GraphServer] WS handler exception: {ex.GetType().Name}: {ex.Message}");
         }
+        finally
+        {
+            // このタブ宛の待ち合わせは応答が来ないので解いておく。
+            // セッション自体は SelectBrowserTargets の遅延除去に任せる。
+            _pendingCanvas.AbandonSession(session.Id);
+        }
     }
 
     /// <summary>ログ1行に収める用に先頭だけ切り出す。改行は潰す。</summary>
@@ -1000,6 +1011,60 @@ public sealed class GraphServer : IDisposable
             catch { /* 切断済みセッションはスキップ */ }
         }
         return Describe(sent);
+    }
+
+    /// <summary>
+    /// target で選んだブラウザへ現在のキャンバスを尋ね、返ってきた内容を返す。
+    /// 応答が無かったタブも error 付きで含めるので、asked と results の件数は一致する。
+    /// </summary>
+    public async Task<List<CanvasGraphEntry>> RequestCanvasFromBrowsers(string target, int timeoutMs)
+    {
+        var sessions = SelectBrowserTargets(target);
+        if (sessions.Count == 0) return new List<CanvasGraphEntry>();
+
+        var waits = new List<(WebSocketSession Session, string Token, Task<NodeGraph?> Task)>();
+        foreach (var session in sessions)
+        {
+            var token = Guid.NewGuid().ToString("N");
+            var wait = _pendingCanvas.Register(token, session.Id);
+            var payload = JsonSerializer.Serialize(
+                new CanvasGraphRequestPush { RequestToken = token }, ServerJsonContext.Default.CanvasGraphRequestPush);
+            try
+            {
+                await session.SendAsync(payload);
+                waits.Add((session, token, wait));
+            }
+            catch
+            {
+                // 送れなかったタブは待っても返らない
+                _pendingCanvas.Abandon(token);
+            }
+        }
+
+        if (waits.Count > 0)
+        {
+            var all = Task.WhenAll(waits.Select(w => w.Task));
+            // net462 も対象なので Task.WaitAsync(TimeSpan) は使えない。
+            if (await Task.WhenAny(all, Task.Delay(timeoutMs)).ConfigureAwait(false) != all)
+            {
+                // 期限切れ。残りを捨てて、待っている側を全て解く
+                foreach (var w in waits) _pendingCanvas.Abandon(w.Token);
+            }
+        }
+
+        var results = new List<CanvasGraphEntry>();
+        foreach (var w in waits)
+        {
+            var graph = w.Task.Status == TaskStatus.RanToCompletion ? w.Task.Result : null;
+            results.Add(new CanvasGraphEntry
+            {
+                Id = w.Session.Id,
+                ConnectedAt = w.Session.ConnectedAt.ToString("o", CultureInfo.InvariantCulture),
+                Graph = graph,
+                Error = graph == null ? "timeout" : null,
+            });
+        }
+        return results;
     }
 
     private async Task BroadcastAsync(string message)

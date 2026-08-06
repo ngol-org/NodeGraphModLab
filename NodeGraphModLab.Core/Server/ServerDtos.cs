@@ -231,6 +231,47 @@ public sealed class ReloadWebUiResponse
     [JsonPropertyName("targets")] public List<BrowserTargetInfo> Targets { get; set; } = new();
 }
 
+/// <summary>
+/// 現在のキャンバスを送り返すようブラウザへ求めるプッシュ。
+/// <see cref="RequestToken"/> をそのまま返させて、どの要求への応答かを突き合わせる。
+/// </summary>
+public sealed class CanvasGraphRequestPush
+{
+    [JsonPropertyName("type")] public string Type => "canvas_graph_request_push";
+    /// <summary>この要求を識別する使い捨ての値。応答にそのまま載せて返す。</summary>
+    [JsonPropertyName("requestToken")] public string RequestToken { get; set; } = "";
+}
+
+/// <summary>ブラウザ1タブ分のキャンバス取得結果。</summary>
+public sealed class CanvasGraphEntry
+{
+    /// <summary>どのタブの内容か。<see cref="BrowserTargetInfo.Id"/> と同じ値。</summary>
+    [JsonPropertyName("id")] public string Id { get; set; } = "";
+    [JsonPropertyName("connectedAt")] public string ConnectedAt { get; set; } = "";
+    /// <summary>取得できたキャンバス。取得できなかったタブでは null。</summary>
+    [JsonPropertyName("graph")] public NodeGraph? Graph { get; set; }
+    /// <summary>取得できなかった理由。timeout / invalid_graph。</summary>
+    [JsonPropertyName("error")] public string? Error { get; set; }
+}
+
+/// <summary>
+/// 編集中（未保存）のキャンバスを返す。保存済みかどうかに関わらず、
+/// そのタブが今表示している内容をそのまま返す。
+/// </summary>
+public sealed class GetCanvasGraphResponse
+{
+    [JsonPropertyName("type")] public string Type => "get_canvas_graph_response";
+    /// <summary>1件以上のキャンバスを取得できたか。</summary>
+    [JsonPropertyName("success")] public bool Success { get; set; }
+    [JsonPropertyName("target")] public string Target { get; set; } = "";
+    /// <summary>問い合わせを送ったタブ数。0 は宛先が無かったことを示す。</summary>
+    [JsonPropertyName("asked")] public int Asked { get; set; }
+    /// <summary>タブごとの結果。target="all" のときは複数件になる。</summary>
+    [JsonPropertyName("results")] public List<CanvasGraphEntry> Results { get; set; } = new();
+    /// <summary>1件も取得できなかった理由。no_browser_connected / timeout。</summary>
+    [JsonPropertyName("reason")] public string? Reason { get; set; }
+}
+
 public sealed class ListGraphsResponse
 {
     [JsonPropertyName("type")] public string Type => "list_graphs_response";

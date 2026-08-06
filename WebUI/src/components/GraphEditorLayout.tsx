@@ -31,6 +31,7 @@ import { useCanvasDisplayNodes } from '../hooks/useCanvasDisplayNodes'
 import { useGraphCanvasHandlers } from '../hooks/useGraphCanvasHandlers'
 import { useAnnotationRfCallbacks } from '../hooks/useAnnotationState'
 import { useWebUiReload } from '../hooks/useWebUiReload'
+import { useCanvasGraphRequest } from '../hooks/useCanvasGraphRequest'
 import { wsClient } from '../lib/wsClient'
 import { getFragmentIdForNode } from '../lib/fragmentUtils'
 import { MenuBar } from './MenuBar'
@@ -214,6 +215,8 @@ export function GraphEditorLayout({ initialGraphName }: GraphEditorLayoutProps) 
     nodeTypesReady: nodeTypes.length > 0,
     addLog,
   })
+
+  useCanvasGraphRequest({ buildGraphData: handlers.buildGraphData })
 
   useEffect(() => {
     const unsub = wsClient.onMessage(msg => {

@@ -544,6 +544,39 @@ server.tool(
   }
 );
 
+// 5d. get_canvas_graph
+server.tool(
+  "get_canvas_graph",
+  "Read back the graph a WebUI browser tab is currently showing, INCLUDING unsaved edits — no save step required. " +
+  "This is the only way to observe hand-made changes that were never written to disk; load_graph returns the saved file instead. " +
+  "The returned graph has the same shape as load_graph, so it can be passed straight to register_graph or save_graph. " +
+  "Requires at least one open WebUI browser tab: with none connected it fails with reason 'no_browser_connected'. " +
+  "Each result carries the session id of the tab it came from, so with target 'all' you can tell which canvas is which.",
+  {
+    target: z.string().optional().describe(
+      "Which browser tab to read: 'latest' (most-recently-connected, default), 'all' (every tab, returns one result each), or a session id from a previous response's targets array (e.g. 'browser-2')."
+    ),
+    timeoutMs: z.number().optional().describe(
+      "How long the host waits for the tab to answer, in milliseconds (500-60000, default 8000). Raise it only for very large graphs."
+    ),
+  },
+  async ({ target, timeoutMs }) => {
+    return call(async () => {
+      const resp = await client.sendAndWait(
+        {
+          type: "get_canvas_graph",
+          target: target ?? "latest",
+          ...(timeoutMs !== undefined ? { timeoutMs } : {}),
+        },
+        "get_canvas_graph_response",
+        // ホスト側の待ち時間より先にこちらが諦めると、理由の付いた応答を受け取れない。
+        Math.max(15000, (timeoutMs ?? 8000) + 5000)
+      );
+      return respond(JSON.stringify(resp, null, 2));
+    });
+  }
+);
+
 // 6. save_graph
 server.tool(
   "save_graph",
