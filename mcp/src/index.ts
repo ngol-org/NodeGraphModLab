@@ -82,6 +82,30 @@ async function ensureNodeCache(): Promise<NodeTypeInfo[]> {
  */
 const GRAPH_MAX_CHARS = parseInt(process.env.NGOL_MAX_GRAPH_RESPONSE_CHARS ?? "32000");
 
+/**
+ * グラフの書き出し先を決める。
+ *
+ * 既定は `Graphs/` **直下ではなく** `Graphs/exported/`。直下は list_graphs が走査する
+ * 保存領域なので、置くと「保存した」ことになってしまう。
+ * ホストの場所が分からないときは cwd へ書かずに諦める。書いた先を見失うため。
+ */
+function resolveExportPath(filePath: string | undefined, graphName: string): { path?: string; error?: string } {
+  if (filePath) return { path: isAbsolute(filePath) ? filePath : resolve(filePath) };
+
+  const pluginDir = client.detectedPluginDir;
+  if (!pluginDir) {
+    return {
+      error:
+        "Cannot decide where to write: the host did not report its plugin directory. " +
+        "Pass filePath explicitly.",
+    };
+  }
+  // YYYYMMDDhhmmss まで。1文字でも延ばすと小数点を巻き込んでファイル名が "..json" になる
+  const stamp = new Date().toISOString().replace(/[-:T]/g, "").slice(0, 14);
+  const safeName = graphName.replace(/[^\w.-]+/g, "_").slice(0, 60) || "canvas";
+  return { path: join(pluginDir, "Graphs", "exported", `${safeName}-${stamp}.json`) };
+}
+
 /** 超過時に本文の代わりに載せる要約。グラフを理解するためではなく、次の手を選ぶための材料。 */
 function summarizeGraph(graph: Record<string, unknown> | null | undefined) {
   const arr = (k: string) => (Array.isArray(graph?.[k]) ? (graph[k] as unknown[]) : []);
@@ -106,7 +130,9 @@ function summarizeGraph(graph: Record<string, unknown> | null | undefined) {
 function omittedHint(chars: number, limit: number) {
   return (
     `Body omitted: ${chars} chars exceeds the ${limit} limit. ` +
-    `Options: narrow the target, split the graph, or raise NGOL_MAX_GRAPH_RESPONSE_CHARS.`
+    `Use save_canvas_graph to write it to a file and work on that (edit it, then push it back with ` +
+    `register_graph_from_file) — the body stays out of your context. ` +
+    `Alternatively narrow the target, split the graph, or raise NGOL_MAX_GRAPH_RESPONSE_CHARS.`
   );
 }
 
@@ -722,6 +748,124 @@ server.tool(
         "open_graph_response"
       );
       return respond(`Saved: ${id}\n${JSON.stringify(openResp, null, 2)}`);
+    });
+  }
+);
+
+// 6c. save_canvas_graph
+server.tool(
+  "save_canvas_graph",
+  "Write the graph a WebUI browser tab is currently showing to a local JSON file and return only the path plus counts — the graph body never enters your context. " +
+  "Use this when get_canvas_graph reports the body is too large to return. Edit the file with a script, then push it back with register_graph_from_file. " +
+  "The file is written under the host's Graphs/exported/ folder by default, which list_graphs does not scan, so this does NOT count as saving the graph. " +
+  "The returned hash can be passed to get_canvas_graph as ifNoneMatch to check whether the canvas changed after the export.",
+  {
+    target: z.string().optional().describe(
+      "Which browser tab to read: 'latest' (default), or a session id from a previous response (e.g. 'browser-2'). 'all' is not accepted — one file holds one graph."
+    ),
+    filePath: z.string().optional().describe(
+      "Where to write. Absolute, or relative to the MCP server cwd. Omit to use <pluginDir>/Graphs/exported/<name>-<timestamp>.json."
+    ),
+    timeoutMs: z.number().optional().describe(
+      "How long the host waits for the tab to answer, in milliseconds (500-60000, default 8000)."
+    ),
+  },
+  async ({ target, filePath, timeoutMs }) => {
+    return call(async () => {
+      if (target === "all") {
+        return respond("target 'all' is not supported: one file holds one graph. Name a single tab instead.");
+      }
+      const resp = await client.sendAndWait(
+        {
+          type: "get_canvas_graph",
+          target: target ?? "latest",
+          ...(timeoutMs !== undefined ? { timeoutMs } : {}),
+        },
+        "get_canvas_graph_response",
+        Math.max(15000, (timeoutMs ?? 8000) + 5000)
+      );
+
+      const entry = (resp["results"] as Array<Record<string, unknown>> | undefined)?.[0];
+      const graph = entry?.["graph"] as Record<string, unknown> | undefined;
+      if (!graph) {
+        return respond(
+          `No canvas to write: ${resp["reason"] ?? entry?.["error"] ?? "unknown"}\n` +
+          JSON.stringify(resp, null, 2)
+        );
+      }
+
+      const target_ = resolveExportPath(filePath, String(graph["name"] ?? "canvas"));
+      if (!target_.path) return respond(target_.error!);
+
+      try {
+        mkdirSync(dirname(target_.path), { recursive: true });
+        writeFileSync(target_.path, JSON.stringify(graph, null, 2), "utf-8");
+      } catch (err) {
+        return respond(`Failed to write ${target_.path}: ${(err as Error).message}`);
+      }
+
+      return respond(JSON.stringify({
+        savedTo: target_.path,
+        chars: JSON.stringify(graph, null, 2).length,
+        // どのタブから取ったか。summarizeGraph が返す id はグラフ自身のものなので別名にする
+        from: entry?.["id"],
+        hash: entry?.["hash"],
+        ...summarizeGraph(graph),
+      }, null, 2), "save_canvas_graph");
+    });
+  }
+);
+
+// 6d. register_graph_from_file
+server.tool(
+  "register_graph_from_file",
+  "Read a NodeGraph JSON file and register it in the host's memory WITHOUT writing it to persistent storage, then open it on the canvas. " +
+  "This is the return leg of save_canvas_graph: the graph body never enters your context in either direction. " +
+  "Unlike save_and_open_graph_file, this does NOT save the graph — it will not appear in list_graphs and is dropped when the host exits. " +
+  "The graph's id is removed before registering so it cannot collide with a saved graph; pass keepId to override.",
+  {
+    filePath: z.string().describe("Absolute or relative (to MCP server cwd) path to a NodeGraph JSON file"),
+    open: z.boolean().optional().describe("Push the graph to a browser tab after registering. Defaults to true."),
+    target: z.string().optional().describe(
+      "Which browser tab to open it in: 'latest' (default), 'all', or a session id. Ignored when open is false."
+    ),
+    keepId: z.boolean().optional().describe(
+      "Keep the id found in the file. Registration is rejected if a saved graph already uses it. Defaults to false."
+    ),
+  },
+  async ({ filePath, open, target, keepId }) => {
+    return call(async () => {
+      const resolvedPath = isAbsolute(filePath) ? filePath : resolve(filePath);
+      if (!existsSync(resolvedPath)) return respond(`File not found: ${resolvedPath}`);
+
+      let graph: Record<string, unknown>;
+      try {
+        let raw = readFileSync(resolvedPath, "utf-8");
+        if (raw.charCodeAt(0) === 0xfeff) raw = raw.slice(1); // 保存済みグラフは UTF-8 BOM 付き
+        graph = JSON.parse(raw);
+      } catch (err) {
+        return respond(`Failed to parse JSON: ${(err as Error).message}`);
+      }
+      if (!keepId) delete graph["id"];
+
+      const reg = await client.sendAndWait({ type: "register_graph", graph }, "register_graph_response");
+      if (!reg["success"]) {
+        return respond(`Register failed: ${reg["reason"] ?? "unknown"}`);
+      }
+      const id = reg["id"] as string;
+
+      if (open === false) {
+        return respond(JSON.stringify({ registered: id, count: reg["count"], opened: false }, null, 2));
+      }
+      const openResp = await client.sendAndWait(
+        { type: "open_graph", id, target: target ?? "latest" },
+        "open_graph_response"
+      );
+      return respond(JSON.stringify({
+        registered: id,
+        count: reg["count"],
+        opened: openResp["targets"] ?? [],
+      }, null, 2), "register_graph_from_file");
     });
   }
 );
