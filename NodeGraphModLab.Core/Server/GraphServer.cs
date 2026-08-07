@@ -432,7 +432,9 @@ public sealed class GraphServer : IDisposable
             var baseCtx = new MainThreadExecutionContext(
                 "engine", _log, _runner, _registry, _store, _liveParamStore, _extensionServices);
 
-            var result = _executor.ExecuteSingleNode(nodeTypeId, paramValues, inputValues, baseCtx);
+            var result = _executor.ExecuteSingleNode(
+                nodeTypeId, paramValues, inputValues, baseCtx,
+                snapshotStore: _sharedSnapshotStore);
 
             if (result.Success)
                 _log.LogInfo($"[Startup] Node '{nodeTypeId}' completed in {result.Duration.TotalMilliseconds:F0}ms");

@@ -47,7 +47,8 @@ internal sealed class ExecuteNodeHandler : IMessageHandler
                 "engine", _ctx.Log!, _ctx.Runner, _ctx.Registry, _ctx.Store, _ctx.LiveParamStore, _ctx.ExtensionServices);
 
             var result = _ctx.Executor.ExecuteSingleNode(
-                nodeTypeId, paramValues, inputValues, baseCtx);
+                nodeTypeId, paramValues, inputValues, baseCtx,
+                snapshotStore: session.SnapshotStore);
 
             // 出力値をシリアライズ（参照型は SnapshotStore に格納して $snapshot ハンドルへ変換）
             var outputs = BuildOutputs(result.Outputs, session.SnapshotStore);

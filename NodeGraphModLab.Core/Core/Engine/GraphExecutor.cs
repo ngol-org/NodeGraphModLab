@@ -483,13 +483,19 @@ public sealed class GraphExecutor
     // 単体ノード実行 API
     // ================================================================
 
-    /// <summary>グラフを組まずに単一ノードを実行し、出力ポート値を返す。</summary>
+    /// <summary>
+    /// グラフを組まずに単一ノードを実行し、出力ポート値を返す。
+    /// <paramref name="snapshotStore"/> を省略すると <c>ctx.SnapshotStore</c> が null になり、
+    /// ノードの <c>PushLiveValue</c>／<c>SetSnapshot</c> は無音で捨てられる。
+    /// 呼び出し元に実ストアがあるなら渡すこと。
+    /// </summary>
     public SingleNodeExecutionResult ExecuteSingleNode(
         string nodeTypeId,
         Dictionary<string, JsonElement> paramValues,
         Dictionary<string, object?> inputValues,
         IExecutionContext baseContext,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken = default,
+        ISnapshotStore? snapshotStore = null)
     {
         var startTime = DateTimeOffset.UtcNow;
         var logs = new List<LogEntry>();
@@ -519,7 +525,8 @@ public sealed class GraphExecutor
             paramValues,
             inputValues,
             baseContext,
-            snapshotStore: null,
+            snapshotStore,
+            // 単体実行には下流接続が無いため常に空。GetDownstreamConnections が空を返すのが正しい。
             downstreamMap: null,
             runner: runner,
             displayName: descriptor.DisplayName,
